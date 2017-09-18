@@ -1,4 +1,5 @@
-PREFIX = ${HOME}
+PREFIX = /home/theimbichner/Csc452Project/
+#PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
 
 TARGET = libphase2.a
 ASSIGNMENT = 452phase2

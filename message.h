@@ -1,22 +1,35 @@
+#ifndef _MESSAGE_H
+#define _MESSAGE_H
 
 #define DEBUG2 1
 
-typedef struct mailSlot *slotPtr;
-typedef struct mailbox   mailbox;
-typedef struct mboxProc *mboxProcPtr;
+#include "phase2.h"
 
-struct mailbox {
-    int       mboxID;
+typedef struct mailSlot * slotPtr;
+typedef struct mailbox    mailbox;
+typedef struct mailbox  * mailboxPtr;
+typedef struct mboxProc * mboxProcPtr;
+
+struct mailbox
+{
+    int       mboxID;             // The ID of this mailbox
+    mailSlot  slots[MAXSLOTS];    // The slots for this mailbox
+    int       size;               // The size of this mailbox
+
     // other items as needed...
 };
 
-struct mailSlot {
-    int       mboxID;
+struct mailSlot
+{
+    int       mboxID;             // The ID of the mailbox this slot is stored in.
     int       status;
+    char      data[MAX_MESSAGE];  // The message stored in this slot
+
     // other items as needed...
 };
 
-struct psrBits {
+struct psrBits
+{
     unsigned int curMode:1;
     unsigned int curIntEnable:1;
     unsigned int prevMode:1;
@@ -24,7 +37,14 @@ struct psrBits {
     unsigned int unused:28;
 };
 
-union psrValues {
+union psrValues
+{
     struct psrBits bits;
     unsigned int integerPart;
 };
+
+// Some useful constants
+#define ID_NEVER_EXISTED -1
+#define SLOT_STATUS_EMPTY 0
+
+#endif /* _MESSAGE_H */
