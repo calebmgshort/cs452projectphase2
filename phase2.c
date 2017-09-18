@@ -54,6 +54,12 @@ int start1(char *arg)
     // Initialize USLOSS_IntVec and system call handlers,
     // allocate mailboxes for interrupt handlers.  Etc... 
 
+    // Initialize the mailbox table
+    for (int i = 0; i < MAXMBOX; i++)
+    {
+        MailBoxTable[i].mboxID = ID_NEVER_EXISTED;
+    }
+
     enableInterrupts();
 
     // Create a process for start2, then block on a join until start2 quits
@@ -68,7 +74,6 @@ int start1(char *arg)
     return 0;
 } /* start1 */
 
-
 /* ------------------------------------------------------------------------
    Name - MboxCreate
    Purpose - gets a free mailbox from the table of mailboxes and initializes it 
@@ -80,6 +85,30 @@ int start1(char *arg)
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
+    // Check args
+    // TODO return -1 or -2 on incorrect args?
+    if (slots < 0 || slots > MAXSLOTS)
+    {
+        if (DEBUG && debugflag2)
+        {
+            USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid number of slots (%d).\n");
+        }
+        return -1;
+    }
+    if (slot_size < 0 || slot_size > MAX_MESSAGE) // TODO can slot size == 0?
+    {
+        if (DEBUG && debugflag2)
+        {
+            USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid slot size (%d).\n");
+        }
+        return -1;
+    }
+
+    int slot = 0; // TODO get the correct slot
+    mailboxPtr box = &MailBoxTable[slot];
+    box->mboxID = 0 // TODO get the correct ID;
+
+
 } /* MboxCreate */
 
 
