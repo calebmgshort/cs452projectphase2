@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 #PREFIX = /home/theimbichner/Csc452Project/
 PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
-=======
-PREFIX = /home/theimbichner/Csc452Project/
-#PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
->>>>>>> ceb500d454c743c3bcd94cda2050668c911eae4d
 
 TARGET = libphase2.a
 ASSIGNMENT = 452phase2
