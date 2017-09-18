@@ -24,6 +24,7 @@ struct mailSlot
     int       mboxID;             // The ID of the mailbox this slot is stored in.
     int       status;
     char      data[MAX_MESSAGE];  // The message stored in this slot
+    int       size;               // The size of this slot (in bytes)
 
     // other items as needed...
 };
