@@ -103,14 +103,61 @@ int MboxCreate(int slots, int slot_size)
         }
         return -1;
     }
-
-    int slot = 0; // TODO get the correct slot
+    
+    // Get the slot and id
+    int id = getNextBoxID();
+    if (id == -1)
+    {
+        if (DEBUG && debugflag2)
+        {
+            USLOSS_Console("MboxCreate(): No mailbox slots remaining.\n");
+        }
+        return -1;
+    }
+    int slot = idToSlot(id);
     mailboxPtr box = &MailBoxTable[slot];
-    box->mboxID = 0 // TODO get the correct ID;
+    if (DEBUG && debugflag2)
+    {
+        USLOSS_Console("MboxCreate(): Creating mailbox with id %d in slot %d.\n", id, slot);
+    }
 
+    // Set fields
+    box->mboxID = id;
+    box->size = slots;
 
+    // Set fields in slot array
+    for (int i = 0; i < slots; i++)
+    {
+        slotPtr slot = &(box->slots[i]);
+        slot->mboxID = id;
+        slot->status = SLOT_STATUS_EMPTY;
+        slot->size = slot_size;
+    }
+
+    // return the id of the new box
+    return id;
 } /* MboxCreate */
 
+int idToSlot(int id)
+{
+    return id % MAXMBOX;
+}
+
+int getNextBoxID()
+{
+    // Check for empty slots
+    for (int i = 0; i < MAXMBOX; i++)
+    {
+        if (MailBoxTable[i].mboxID == ID_NEVER_EXISTED)
+        {
+            return i;
+        }
+    }
+    // TODO Check for slots to repurpose
+
+    // No slots available
+    return -1;
+}
 
 /* ------------------------------------------------------------------------
    Name - MboxSend

@@ -21,9 +21,10 @@ typedef struct mboxProc * mboxProcPtr;
 
 struct mailbox
 {
-    int       mboxID;             // The ID of this mailbox
-    struct mailSlot  slots[MAXSLOTS];    // The slots for this mailbox
-    int       size;               // The size of this mailbox
+    int       mboxID;             // The ID of the mailbox this slot is stored in.
+    int       status;
+    char      data[MAX_MESSAGE];  // The message stored in this slot
+    int       size;               // The size of this slot (in bytes)
 
     // other items as needed...
 };
