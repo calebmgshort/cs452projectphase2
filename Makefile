@@ -1,5 +1,5 @@
-PREFIX = /home/theimbichner/Csc452Project/
-#PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
+#PREFIX = /home/theimbichner/Csc452Project/
+PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
 
 TARGET = libphase2.a
 ASSIGNMENT = 452phase2
@@ -26,7 +26,7 @@ ifeq ($(UNAME), Darwin)
         CFLAGS += -D_XOPEN_SOURCE
 endif
 
-LDFLAGS += -L. -L${PREFIX}/lib 
+LDFLAGS += -L. -L${PREFIX}/lib
 
 TESTDIR = testcases
 TESTS= test00 test01 test02 test03 test04 test05 test06 test07 test08 \
@@ -36,7 +36,7 @@ TESTS= test00 test01 test02 test03 test04 test05 test06 test07 test08 \
 LIBS = -l$(PHASE1LIB) -lphase2 -lusloss
 
 $(TARGET):	$(COBJS)
-		$(AR) -r $@ $(COBJS) 
+		$(AR) -r $@ $(COBJS)
 
 $(TESTS):       $(TARGET) p1.o
 	$(CC) $(CFLAGS) -c $(TESTDIR)/$@.c
