@@ -26,6 +26,9 @@ int debugflag2 = 0;
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
 
+// The Mailbox slots
+mailSlot MailSlotTable[MAXSLOTS];
+
 // also need array of mail slots, array of function ptrs to system call
 // handlers, ...
 
@@ -62,6 +65,12 @@ int start1(char *arg)
         MailBoxTable[i].mboxID = ID_NEVER_EXISTED;
     }
 
+    // Initialize the slots table
+    for (int i = 0; i < MAXSLOTS; i++)
+    {
+        MailSlotTable[i].mboxID = ID_NEVER_EXISTED;
+    }
+
     enableInterrupts();
 
     // Create a process for start2, then block on a join until start2 quits
@@ -92,7 +101,7 @@ int MboxCreate(int slots, int slot_size)
     // TODO return -1 or -2 on incorrect args?
     if (slots < 0 || slots > MAXSLOTS)
     {
-        if (DEBUG && debugflag2)
+        if (DEBUG2 && debugflag2)
         {
             USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid number of slots (%d).\n");
         }
@@ -100,7 +109,7 @@ int MboxCreate(int slots, int slot_size)
     }
     if (slot_size < 0 || slot_size > MAX_MESSAGE) // TODO can slot size == 0?
     {
-        if (DEBUG && debugflag2)
+        if (DEBUG2 && debugflag2)
         {
             USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid slot size (%d).\n");
         }
@@ -108,18 +117,18 @@ int MboxCreate(int slots, int slot_size)
     }
 
     // Get the slot and id
-    int id = getNextBoxID();
+    int id = getNextMboxID();
     if (id == -1)
     {
-        if (DEBUG && debugflag2)
+        if (DEBUG2 && debugflag2)
         {
             USLOSS_Console("MboxCreate(): No mailbox slots remaining.\n");
         }
         return -1;
     }
-    int slot = idToSlot(id);
+    int slot = mboxIDToSlot(id);
     mailboxPtr box = &MailBoxTable[slot];
-    if (DEBUG && debugflag2)
+    if (DEBUG2 && debugflag2)
     {
         USLOSS_Console("MboxCreate(): Creating mailbox with id %d in slot %d.\n", id, slot);
     }
@@ -127,26 +136,20 @@ int MboxCreate(int slots, int slot_size)
     // Set fields
     box->mboxID = id;
     box->size = slots;
-
-    // Set fields in slot array
-    for (int i = 0; i < slots; i++)
-    {
-        slotPtr slot = &(box->slots[i]);
-        slot->mboxID = id;
-        slot->status = SLOT_STATUS_EMPTY;
-        slot->size = slot_size;
-    }
+    box->slotSize = slot_size;
+    box->slotsHead = NULL;
+    box->slotsTail = NULL;
 
     // return the id of the new box
     return id;
 } /* MboxCreate */
 
-int idToSlot(int id)
+int mboxIDToSlot(int id)
 {
     return id % MAXMBOX;
 }
 
-int getNextBoxID()
+int getNextMboxID()
 {
     // Check for empty slots
     for (int i = 0; i < MAXMBOX; i++)
