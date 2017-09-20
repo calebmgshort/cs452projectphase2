@@ -6,6 +6,6 @@ void disableInterrupts();
 void enableInterrupts();
 int mboxIDToIndex(int);
 int getNextMboxID();
-int findEmptyMailSlot();
+slotPtr findEmptyMailSlot();
 
 #endif
