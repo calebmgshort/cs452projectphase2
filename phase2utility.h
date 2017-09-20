@@ -4,5 +4,7 @@
 void check_kernel_mode(char*);
 void disableInterrupts();
 void enableInterrupts();
+int mboxIDToSlot(int);
+int getNextMboxID();
 
 #endif

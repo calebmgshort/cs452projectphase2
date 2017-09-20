@@ -150,27 +150,6 @@ int MboxCreate(int slots, int slot_size)
     return id;
 } /* MboxCreate */
 
-int mboxIDToSlot(int id)
-{
-    return id % MAXMBOX;
-}
-
-int getNextMboxID()
-{
-    // Check for empty slots
-    for (int i = 0; i < MAXMBOX; i++)
-    {
-        if (MailBoxTable[i].mboxID == ID_NEVER_EXISTED)
-        {
-            return i;
-        }
-    }
-    // TODO Check for slots to repurpose
-
-    // No slots available
-    return -1;
-}
-
 /* ------------------------------------------------------------------------
    Name - MboxSend
    Purpose - Put a message into a slot for the indicated mailbox.
@@ -181,6 +160,8 @@ int getNextMboxID()
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+  // TODO: Write this function
+  return -1;
 } /* MboxSend */
 
 
@@ -195,4 +176,6 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
 {
+  // TODO: Write this function
+  return -1;
 } /* MboxReceive */
