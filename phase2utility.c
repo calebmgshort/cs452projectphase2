@@ -39,3 +39,36 @@ int getNextMboxID()
     // No slots available
     return -1;
 }
+
+/*
+ * Returns a pointer to a clean, unused entry in the slots table. Returns NULL
+ * if all slots are in use.
+ */
+slotPtr initNewMailSlot()
+{
+    // Check for empty slots
+    for (int i = 0; i < MAXSLOTS; i++)
+    {
+        if (MailSlotTable[i].mboxID == ID_NEVER_EXISTED)
+        {
+            slotPtr slot = &MailSlotTable[i];
+            initSlot(slot);
+            return slot;
+        }
+    }
+    // TODO Check for slots to repurpose
+
+    // No slots available
+    return NULL;
+}
+
+/*
+ * Helper for initNewMailSlot that cleans the memory pointed to by slot.
+ */
+static void initSlot(slotPtr slot)
+{
+    slot->mboxID = ID_NEVER_EXISTED;
+    slot->status = 0; // TODO what is the default status?
+    slot->size = -1;
+    slot->next = NULL;
+}
