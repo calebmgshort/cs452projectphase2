@@ -1,11 +1,13 @@
 #include <phase1.h>
 #include <phase2.h>
 #include <usloss.h>
+#include <stdlib.h>
 
 #include "message.h"
 #include "phase2utility.h"
 
 extern mailbox MailBoxTable[];
+extern mailSlot MailSlotTable[];
 
 void check_kernel_mode(char* functionName){
 
@@ -46,6 +48,8 @@ int getNextMboxID()
     return -1;
 }
 
+static void cleanSlot(slotPtr);
+
 /*
  * Returns a pointer to a clean, unused entry in the slots table. Returns NULL
  * if all slots are in use.
@@ -69,7 +73,7 @@ slotPtr findEmptyMailSlot()
 }
 
 /*
- * Helper for initNewMailSlot that cleans the memory pointed to by slot.
+ * Helper for findEmptyMailSlot that cleans the memory pointed to by slot.
  */
 static void cleanSlot(slotPtr slot)
 {
