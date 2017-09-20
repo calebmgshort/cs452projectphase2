@@ -46,8 +46,11 @@ mailSlot MailSlotTable[MAXSLOTS];
 int start1(char *arg)
 {
     if (DEBUG2 && debugflag2)
-        USLOSS_Console("start1(): at beginning\n");
+    {
+        USLOSS_Console("start1(): Called.\n");
+    }
 
+    // Check the current mode
     check_kernel_mode("start1");
 
     // Disable interrupts
@@ -69,15 +72,18 @@ int start1(char *arg)
         MailSlotTable[i].mboxID = ID_NEVER_EXISTED;
     }
 
+    // Enable interrupts
     enableInterrupts();
 
     // Create a process for start2, then block on a join until start2 quits
     if (DEBUG2 && debugflag2)
-        USLOSS_Console("start1(): fork'ing start2 process\n");
-    kid_pid = fork1("start2", start2, NULL, 4 * USLOSS_MIN_STACK, 1);
-    if ( join(&status) != kid_pid ) {
-        USLOSS_Console("start2(): join returned something other than ");
-        USLOSS_Console("start2's pid\n");
+    {
+        USLOSS_Console("start1(): fork'ing start2 process.\n");
+    }
+    int kid_pid = fork1("start2", start2, NULL, 4 * USLOSS_MIN_STACK, 1);
+    if (join(&status) != kid_pid)
+    {
+        USLOSS_Console("start2(): join returned something other than start2's pid.\n");
     }
 
     return 0;
