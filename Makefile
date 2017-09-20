@@ -1,5 +1,7 @@
-#PREFIX = /home/theimbichner/Csc452Project/
-PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
+PREFIX = /home/theimbichner/Csc452Project/
+LDFLAGS += -L. -L${PREFIX}/lib -L./libraries/linux
+#PREFIX = /Users/Caleb/Documents/ComputerScience/csc452/project/compilefolder#${HOME}
+#LDFLAGS += -L. -L${PREFIX}/lib -L./libraries/osx
 
 TARGET = libphase2.a
 ASSIGNMENT = 452phase2
@@ -25,8 +27,6 @@ UNAME := $(shell uname -s)
 ifeq ($(UNAME), Darwin)
         CFLAGS += -D_XOPEN_SOURCE
 endif
-
-LDFLAGS += -L. -L${PREFIX}/lib
 
 TESTDIR = testcases
 TESTS= test00 test01 test02 test03 test04 test05 test06 test07 test08 \
