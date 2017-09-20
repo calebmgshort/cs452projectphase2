@@ -5,9 +5,7 @@
    Computer Science 452
 
    ------------------------------------------------------------------------ */
-
 #include <phase1.h>
-#include <phase2.h>
 #include <usloss.h>
 #include <stddef.h>
 
@@ -19,10 +17,8 @@
 int start1 (char *);
 extern int start2 (char *);
 
-
 /* -------------------------- Globals ------------------------------------- */
-
-int debugflag2 = 0;
+int debugflag2 = 1;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -33,11 +29,7 @@ mailSlot MailSlotTable[MAXSLOTS];
 // also need array of mail slots, array of function ptrs to system call
 // handlers, ...
 
-
-
-
 /* -------------------------- Functions ----------------------------------- */
-
 /* ------------------------------------------------------------------------
    Name - start1
    Purpose - Initializes mailboxes and interrupt vector.
@@ -123,7 +115,7 @@ int MboxCreate(int slots, int slot_size)
         return -1;
     }
 
-    // Get the slot and id
+    // Get the id and index
     int id = getNextMboxID();
     if (id == -1)
     {
@@ -133,11 +125,11 @@ int MboxCreate(int slots, int slot_size)
         }
         return -1;
     }
-    int slot = mboxIDToSlot(id);
-    mailboxPtr box = &MailBoxTable[slot];
+    int index = mboxIDToIndex(id);
+    mailboxPtr box = &MailBoxTable[index];
     if (DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxCreate(): Creating mailbox with id %d in slot %d.\n", id, slot);
+        USLOSS_Console("MboxCreate(): Creating mailbox with id %d at index %d.\n", id, index);
     }
 
     // Set fields

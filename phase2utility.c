@@ -19,14 +19,20 @@ void enableInterrupts(){
 
 }
 
-int mboxIDToSlot(int id)
+/*
+ * Converts an mboxID to an index in the mailbox table
+ */
+int mboxIDToIndex(int id)
 {
     return id % MAXMBOX;
 }
 
+/*
+ * Helper for MboxCreate that returns the next mboxID. Returns -1 iff no space is available.
+ */
 int getNextMboxID()
 {
-    // Check for empty slots
+    // Check for empty boxes
     for (int i = 0; i < MAXMBOX; i++)
     {
         if (MailBoxTable[i].mboxID == ID_NEVER_EXISTED)
@@ -34,9 +40,9 @@ int getNextMboxID()
             return i;
         }
     }
-    // TODO Check for slots to repurpose
+    // TODO Check for boxes to repurpose
 
-    // No slots available
+    // No space available
     return -1;
 }
 
