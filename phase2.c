@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #include "message.h"
+#include "phase2.h"
 #include "phase2utility.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
