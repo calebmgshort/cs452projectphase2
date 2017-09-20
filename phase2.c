@@ -153,8 +153,55 @@ int MboxCreate(int slots, int slot_size)
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
-  // TODO: Write this function
-  return -1;
+    // Get the mailbox that mbox_id corresponds to
+    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxSend(): mbox_id out of range.\n");
+        }
+        return -1;
+    }
+    mailboxPtr box = &MailBoxTable[mbox_id];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxSend(): mbox_id does not correspond to a mailbox.\n");
+        }
+        return -1;
+    }
+
+    // Check the message size
+    if (msg_size < 0 || msg_size > box->slotSize)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxSend(): msg_size out of range for box %d.\n", box->mboxID);
+        }
+        return -1;
+    }
+    
+    // Get a slot for the new message
+    slotPtr slot = findEmptyMailSlot();
+    if (slot == NULL)
+    {
+        // No space is available.
+        USLOSS_Console("MboxSend(): No more space in the slots table.\n");
+        USLOSS_Halt(1); 
+    }
+
+    // TODO ensure there is space in box for one more message, block if not
+
+    // Add slot to box
+    addMailSlot(box, slot);
+
+    // Init slot's fields
+    slot->mboxID = box->mboxID;
+    memcpy(slot->data, msg_ptr, msg_size);
+    slot->size = msg_size;
+
+    return 0;
 } /* MboxSend */
 
 

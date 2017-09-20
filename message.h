@@ -29,7 +29,7 @@ struct mailSlot
     int       mboxID;             // The ID of the mailbox this slot is stored in.
     int       status;             // The status of this mailSlot
     char      data[MAX_MESSAGE];  // The message stored in this slot
-    int       size;               // The max size of a message that can be stored in this slot (in bytes)
+    int       size;               // The size of the message currently stored in data. 
     slotPtr   next;               // Linked list next pointer
 
     // other items as needed...

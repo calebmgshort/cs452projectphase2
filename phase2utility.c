@@ -50,7 +50,7 @@ int getNextMboxID()
  * Returns a pointer to a clean, unused entry in the slots table. Returns NULL
  * if all slots are in use.
  */
-slotPtr initNewMailSlot()
+slotPtr findEmptyMailSlot()
 {
     // Check for empty slots
     for (int i = 0; i < MAXSLOTS; i++)
@@ -58,7 +58,7 @@ slotPtr initNewMailSlot()
         if (MailSlotTable[i].mboxID == ID_NEVER_EXISTED)
         {
             slotPtr slot = &MailSlotTable[i];
-            initSlot(slot);
+            cleanSlot(slot);
             return slot;
         }
     }
@@ -71,10 +71,27 @@ slotPtr initNewMailSlot()
 /*
  * Helper for initNewMailSlot that cleans the memory pointed to by slot.
  */
-static void initSlot(slotPtr slot)
+static void cleanSlot(slotPtr slot)
 {
     slot->mboxID = ID_NEVER_EXISTED;
     slot->status = 0; // TODO what is the default status?
     slot->size = -1;
     slot->next = NULL;
+}
+
+/*
+ * Adds slot to box's list of mail slots.
+ */
+void addMailSlot(mailboxPtr box, slotPtr slot)
+{
+    if (box->slotsHead == NULL)
+    {
+        box->slotsHead = slot;
+        box->slotsTail = slot;
+    }
+    else
+    {
+        box->slotsTail->next = slot;
+        box->slotsTail = slot;
+    }
 }
