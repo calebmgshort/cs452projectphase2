@@ -9,8 +9,10 @@
 #include <phase1.h>
 #include <phase2.h>
 #include <usloss.h>
+#include <stddef.h>
 
 #include "message.h"
+#include "phase2utility.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
 int start1 (char *);
@@ -21,13 +23,13 @@ extern int start2 (char *);
 
 int debugflag2 = 0;
 
-// the mail boxes 
+// the mail boxes
 mailbox MailBoxTable[MAXMBOX];
 
 // The Mailbox slots
 mailSlot MailSlotTable[MAXSLOTS];
 
-// also need array of mail slots, array of function ptrs to system call 
+// also need array of mail slots, array of function ptrs to system call
 // handlers, ...
 
 
@@ -58,7 +60,7 @@ int start1(char *arg)
 
     // Initialize the mail box table, slots, & other data structures.
     // Initialize USLOSS_IntVec and system call handlers,
-    // allocate mailboxes for interrupt handlers.  Etc... 
+    // allocate mailboxes for interrupt handlers.  Etc...
 
     // Initialize the mailbox table
     for (int i = 0; i < MAXMBOX; i++)
@@ -81,6 +83,7 @@ int start1(char *arg)
         USLOSS_Console("start1(): fork'ing start2 process.\n");
     }
     int kid_pid = fork1("start2", start2, NULL, 4 * USLOSS_MIN_STACK, 1);
+    int status;
     if (join(&status) != kid_pid)
     {
         USLOSS_Console("start2(): join returned something other than start2's pid.\n");
@@ -91,12 +94,12 @@ int start1(char *arg)
 
 /* ------------------------------------------------------------------------
    Name - MboxCreate
-   Purpose - gets a free mailbox from the table of mailboxes and initializes it 
+   Purpose - gets a free mailbox from the table of mailboxes and initializes it
    Parameters - maximum number of slots in the mailbox and the max size of a msg
                 sent to the mailbox.
    Returns - -1 to indicate that no mailbox was created, or a value >= 0 as the
              mailbox id.
-   Side Effects - initializes one element of the mail box array. 
+   Side Effects - initializes one element of the mail box array.
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
@@ -118,7 +121,7 @@ int MboxCreate(int slots, int slot_size)
         }
         return -1;
     }
-    
+
     // Get the slot and id
     int id = getNextMboxID();
     if (id == -1)
