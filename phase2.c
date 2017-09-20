@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #include "message.h"
+#include "phase2.h"
 #include "phase2utility.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
@@ -181,6 +182,7 @@ int getNextMboxID()
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+    return -1; // TODO this is not correct.
 } /* MboxSend */
 
 
@@ -195,4 +197,5 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
 {
+    return -1; // TODO this is not correct.
 } /* MboxReceive */
