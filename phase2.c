@@ -200,6 +200,36 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         return -1;
     }
 
+    // Check to see if anything is blocked on box
+    if (box->blockedProcsHead != NULL)
+    {
+        // Check the amount of space left in box
+        if (box->slotsHead == NULL)
+        {
+            // Something is blocked on a receive
+            mboxProcPtr proc = box->blockedProcsHead;
+            removeBlockedProcsHead(box);
+
+            // Check that the message can be received
+            if (msg_size > proc->bufSize)
+            {
+                if (DEBUG2 && debugflag2)
+                {
+                    USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
+                }
+                proc->msgSize = -1;
+                // TODO should we discard messages that could not be delivered or keep them 
+            }
+            memcpy(proc->msgBuf, msg_ptr, msg_size);
+            unblockProc(proc->pid);
+            return 0;
+        }
+        else
+        {
+            // Something is blocked on a send
+        }
+    }
+
     // Get a slot for the new message
     slotPtr slot = findEmptyMailSlot();
     if (slot == NULL)
@@ -269,19 +299,27 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // Dequeue a message
     if (slot == NULL)
     {
-        // Add the current process to box's blocked procs list
+        // Init the proc in the proc table
         int currentPid = getpid();
+        initProc(currentPid, msg_ptr, max_msg_size);
+        
+        // Add the proc to box's list of blocked procs
         mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
         box->blockedProcsTail->nextBlockedProc = proc;
         box->blockedProcsTail = proc;
 
         // Block until a message is available
         blockMe(STATUS_BLOCK_RECEIVE);
-        slot = box->slotsHead;
-        
-
 
         // TODO check if zapped or if mailbox released while blocked
+
+
+
+        // Clear the unblocked proc from the table
+        clearProc(currentPid);
+
+
+        // TODO return
     }
 
     // Check that the message will fit in the buffer
@@ -294,7 +332,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -1;
     }
     // The slot is valid so we can remove it from the box
-    removeHead(box);
+    removeSlotsHead(box);
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);

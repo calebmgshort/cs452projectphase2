@@ -100,3 +100,26 @@ void addMailSlot(mailboxPtr box, slotPtr slot)
     }
 }
 
+int pidToSlot(int pid)
+{
+    return pid % MAXPROC;
+}
+
+void initProc(int pid, void *msgBuf, int bufSize)
+{
+    mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
+    if (proc->pid != ID_NEVER_EXISTED)
+    {
+        USLOSS_Console("initProcInTable(): Trying to overwrite existing proc entry.  Halting...\n");
+        USLOSS_Halt(1);
+    }
+    proc->pid = pid;
+    proc->nextBlockedProc = NULL;
+    proc->msgBuf = msgBuf;
+    proc->bufSize = bufSize;
+}
+
+void clearProc(int pid)
+{
+    ProcTable[pidToSlot(pid)].pid = ID_NEVER_EXISTED;
+}

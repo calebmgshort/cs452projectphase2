@@ -8,5 +8,7 @@ int mboxIDToIndex(int);
 int getNextMboxID();
 slotPtr findEmptyMailSlot();
 void addMailSlot(mailboxPtr, slotPtr);
+void initProc(int, void *, int);
+void clearProc(int);
 
 #endif

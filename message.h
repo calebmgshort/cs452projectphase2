@@ -16,13 +16,13 @@ typedef struct mboxProc * mboxProcPtr;
 
 struct mailbox
 {
-    int         mboxID;            // The ID of this mailbox
-    int         size;              // The size of this mailbox
-    int         slotSize;          // The size for each slot of this mailbox
-    slotPtr     slotsHead;         // The list of slots for this mailbox
-    slotPtr     slotsTail;
-    mboxProcPtr blockedProcsHead;  // The list of procs blocked on this mailbox
-    mboxProcPtr blockedProcsTail;
+    int          mboxID;           // The ID of this mailbox
+    int          size;             // The size of this mailbox
+    int          slotSize;         // The size for each slot of this mailbox
+    slotPtr      slotsHead;        // The list of slots for this mailbox
+    slotPtr      slotsTail;
+    mboxProcPtr  blockedProcsHead; // The list of procs blocked on this mailbox
+    mboxProcPtr  blockedProcsTail;
 
     // other items as needed...
 };
@@ -40,8 +40,11 @@ struct mailSlot
 
 struct mboxProc
 {
-    int         pid;             // The pid of this proc
-    mboxProcPtr nextBlockedProc; // LL next pointer (for each mbox's list of blocked procs)
+    int          pid;             // The pid of this proc
+    mboxProcPtr  nextBlockedProc; // LL next pointer (for each mbox's list of blocked procs)
+    void        *msgBuf;          // Pointer to the buffer that send should write its message to.
+    int          bufSize;         // The size of the buffer
+    int          msgSize;         // The size of the copied message. -1 if no message was copied
 };
 
 struct psrBits
