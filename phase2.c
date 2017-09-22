@@ -68,6 +68,11 @@ int start1(char *arg)
         MailSlotTable[i].mboxID = ID_NEVER_EXISTED;
     }
 
+    for (int i = 0; i < 7; i++)
+    {
+        MboxCreate(0, 0);
+    }
+
     // Enable interrupts
     enableInterrupts();
 
