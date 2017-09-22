@@ -193,6 +193,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     }
 
     // TODO ensure there is space in box for one more message, block if not
+    // TODO check if zapped or if box has been released
 
     // Add slot to box
     addMailSlot(box, slot);
@@ -215,8 +216,54 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    Returns - actual size of msg if successful, -1 if invalid args.
    Side Effects - none.
    ----------------------------------------------------------------------- */
-int MboxReceive(int mbox_id, void *msg_ptr, int msg_size)
+int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
-  // TODO: Write this function
-  return -1;
+    // Get the mailbox that mbox_id corresponds to
+    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): mbox_id out of range.\n");
+        }
+        return -1;
+    }
+    mailboxPtr box = &MailBoxTable[mbox_id];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): mbox_id does not correspond to a mailbox.\n");
+        }
+        return -1;
+    }
+
+    // Check the message size
+    if (max_msg_size < 0)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): max_msg_size out of range for box %d.\n", box->mboxID);
+        }
+        return -1;
+    }
+
+    // Dequeue a message
+    if (box->slotsHead == NULL)
+    {
+        // TODO block until there is a message to receive
+        // TODO check if zapped or if mailbox released while blocked
+    }
+    slotPtr slot = box->slotsHead;
+    box->slotsHead = box->slotsHead->next;
+
+    // Check that the message will fit in the buffer
+    if (slot->size > max_msg_size)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
+        }
+        return -1; // TODO Should we re-enqueue the message?
+    }
+    return 0; // TODO finish writing
 } /* MboxReceive */
