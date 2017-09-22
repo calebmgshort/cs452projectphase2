@@ -8,6 +8,7 @@
 #include <phase1.h>
 #include <usloss.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "message.h"
 #include "phase2.h"

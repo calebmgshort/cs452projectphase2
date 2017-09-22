@@ -7,5 +7,5 @@ void enableInterrupts();
 int mboxIDToIndex(int);
 int getNextMboxID();
 slotPtr findEmptyMailSlot();
-
+void addMailSlot(mailboxPtr, slotPtr);
 #endif
