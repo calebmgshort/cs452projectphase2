@@ -107,7 +107,7 @@ int MboxCreate(int slots, int slot_size)
         }
         return -1;
     }
-    if (slot_size < 0 || slot_size > MAX_MESSAGE) // TODO can slot size == 0?
+    if (slot_size < 0 || slot_size > MAX_MESSAGE)
     {
         if (DEBUG2 && debugflag2)
         {
@@ -263,7 +263,13 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
         }
-        return -1; // TODO Should we re-enqueue the message?
+        // Replace the message
+        box->slotsHead = slot;
+        return -1;
     }
-    return 0; // TODO finish writing
+
+    // Copy the message
+    memcpy(msg_ptr, slot->data, slot->size);
+    return slot->size;
 } /* MboxReceive */
+
