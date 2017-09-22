@@ -27,6 +27,9 @@ mailbox MailBoxTable[MAXMBOX];
 // The Mailbox slots
 mailSlot MailSlotTable[MAXSLOTS];
 
+// The message process table
+mboxProc ProcTable[MAXPROC];
+
 // also need array of mail slots, array of function ptrs to system call
 // handlers, ...
 
@@ -68,6 +71,13 @@ int start1(char *arg)
         MailSlotTable[i].mboxID = ID_NEVER_EXISTED;
     }
 
+    // Initialize the process table
+    for (int i = 0; i < MAXPROC; i++)
+    {
+        ProcTable[i].pid = ID_NEVER_EXISTED;
+    }
+
+    // Create dummy mailboxes to synch for testing TODO remove
     for (int i = 0; i < 7; i++)
     {
         MboxCreate(0, 0);
@@ -144,6 +154,8 @@ int MboxCreate(int slots, int slot_size)
     box->slotSize = slot_size;
     box->slotsHead = NULL;
     box->slotsTail = NULL;
+    box->blockedProcsHead = NULL;
+    box->blockedProcsTail = NULL;
 
     // return the id of the new box
     return id;
@@ -257,7 +269,18 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // Dequeue a message
     if (slot == NULL)
     {
-        // TODO block until there is a message to receive
+        // Add the current process to box's blocked procs list
+        int currentPid = getpid();
+        mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
+        box->blockedProcsTail->nextBlockedProc = proc;
+        box->blockedProcsTail = proc;
+
+        // Block until a message is available
+        blockMe(STATUS_BLOCK_RECEIVE);
+        slot = box->slotsHead;
+        
+
+
         // TODO check if zapped or if mailbox released while blocked
     }
 

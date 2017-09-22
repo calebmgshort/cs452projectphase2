@@ -100,20 +100,3 @@ void addMailSlot(mailboxPtr box, slotPtr slot)
     }
 }
 
-/*
- * Removes and returns the first slot from the box's list of mail slots
- */
-slotPtr getHeadOfBox(mailboxPtr box)
-{
-  return box->slotsHead;
-}
-
-/*
- * Removes and returns the first slot from the box's list of mail slots
- */
-void removeHead(mailboxPtr box)
-{
-  box->slotsHead = box->slotsHead->next;
-  if(box->slotsHead == NULL)
-      box->slotsTail = NULL;
-}
