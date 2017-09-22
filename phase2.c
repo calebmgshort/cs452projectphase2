@@ -19,7 +19,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 1;
+int debugflag2 = 0;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -182,14 +182,14 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         }
         return -1;
     }
-    
+
     // Get a slot for the new message
     slotPtr slot = findEmptyMailSlot();
     if (slot == NULL)
     {
         // No space is available.
         USLOSS_Console("MboxSend(): No more space in the slots table.\n");
-        USLOSS_Halt(1); 
+        USLOSS_Halt(1);
     }
 
     // TODO ensure there is space in box for one more message, block if not
