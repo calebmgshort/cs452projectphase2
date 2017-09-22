@@ -252,14 +252,14 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -1;
     }
 
+    slotPtr slot = box->slotsHead;
+
     // Dequeue a message
-    if (box->slotsHead == NULL)
+    if (slot == NULL)
     {
         // TODO block until there is a message to receive
         // TODO check if zapped or if mailbox released while blocked
     }
-    slotPtr slot = box->slotsHead;
-    box->slotsHead = box->slotsHead->next;
 
     // Check that the message will fit in the buffer
     if (slot->size > max_msg_size)
@@ -268,13 +268,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
         }
-        // Replace the message
-        box->slotsHead = slot;
         return -1;
     }
+    // The slot is valid so we can remove it from the box
+    removeHead(box);
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);
     return slot->size;
 } /* MboxReceive */
-
