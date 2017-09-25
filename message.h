@@ -18,6 +18,7 @@ struct mailbox
 {
     int          mboxID;           // The ID of this mailbox
     int          size;             // The size of this mailbox
+    int          numSlotsOccupied; // The current number of slots occupied by this mailbox
     int          slotSize;         // The size for each slot of this mailbox
     slotPtr      slotsHead;        // The list of slots for this mailbox
     slotPtr      slotsTail;
@@ -32,7 +33,7 @@ struct mailSlot
     int      mboxID;            // The ID of the mailbox this slot is stored in.
     int      status;            // The status of this mailSlot
     char     data[MAX_MESSAGE]; // The message stored in this slot
-    int      size;              // The size of the message currently stored in data. 
+    int      size;              // The size of the message currently stored in data.
     slotPtr  next;              // LL next pointer (for each mbox's list of slots)
 
     // other items as needed...

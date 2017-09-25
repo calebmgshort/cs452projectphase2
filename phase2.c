@@ -13,6 +13,7 @@
 #include "message.h"
 #include "phase2.h"
 #include "phase2utility.h"
+#include "phase2queue.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
 int start1 (char *);
@@ -151,6 +152,7 @@ int MboxCreate(int slots, int slot_size)
     // Set fields
     box->mboxID = id;
     box->size = slots;
+    box->numSlotsOccupied = 0;
     box->slotSize = slot_size;
     box->slotsHead = NULL;
     box->slotsTail = NULL;
@@ -204,7 +206,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if (box->blockedProcsHead != NULL)
     {
         // Check the amount of space left in box
-        if (box->slotsHead == NULL)
+        if (box->slotsHead == NULL)   // Something is blocked on a receive
         {
             // Something is blocked on a receive
             mboxProcPtr proc = box->blockedProcsHead;
@@ -218,15 +220,12 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
                     USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
                 }
                 proc->msgSize = -1;
-                // TODO should we discard messages that could not be delivered or keep them 
+                // TODO should we discard messages that could not be delivered or keep them
             }
             memcpy(proc->msgBuf, msg_ptr, msg_size);
+            proc->msgSize = msg_size;
             unblockProc(proc->pid);
             return 0;
-        }
-        else
-        {
-            // Something is blocked on a send
         }
     }
 
@@ -239,7 +238,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         USLOSS_Halt(1);
     }
 
-    // TODO ensure there is space in box for one more message, block if not
+    // ensure there is space in box for one more message, block if not
+    if(box->numSlotsOccupied == box->size)
+    {
+        blockMe(STATUS_BLOCK_SEND);
+    }
     // TODO check if zapped or if box has been released
 
     // Add slot to box
@@ -249,6 +252,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     slot->mboxID = box->mboxID;
     memcpy(slot->data, msg_ptr, msg_size);
     slot->size = msg_size;
+
 
     return 0;
 } /* MboxSend */
@@ -302,7 +306,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         // Init the proc in the proc table
         int currentPid = getpid();
         initProc(currentPid, msg_ptr, max_msg_size);
-        
+
         // Add the proc to box's list of blocked procs
         mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
         box->blockedProcsTail->nextBlockedProc = proc;
@@ -319,7 +323,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         clearProc(currentPid);
 
 
-        // TODO return
+        return proc->msgSize;
     }
 
     // Check that the message will fit in the buffer
@@ -333,6 +337,19 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     }
     // The slot is valid so we can remove it from the box
     removeSlotsHead(box);
+
+    // Check to see if anything is blocked on box
+    if (box->blockedProcsHead != NULL)
+    {
+        // Check the amount of space left in box
+        if (box->slotsHead != NULL)   // Something is blocked on a send
+        {
+            mboxProcPtr proc = box->blockedProcsHead;
+            removeBlockedProcsHead(box);
+            unblockProc(proc->pid);
+        }
+    }
+
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);

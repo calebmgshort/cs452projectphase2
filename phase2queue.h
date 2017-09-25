@@ -3,7 +3,7 @@
 
 #include "message.h"
 
-void removeSlotsHead(mboxPtr);
-void removedBlockedProcsHead(mboxPtr);
+void removeSlotsHead(mailboxPtr);
+void removeBlockedProcsHead(mailboxPtr);
 
 #endif /* _PHASE2QUEUE_H */

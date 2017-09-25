@@ -3,11 +3,11 @@
 #include <usloss.h>
 #include <stdlib.h>
 
-#include "message.h"
 #include "phase2utility.h"
 
 extern mailbox MailBoxTable[];
 extern mailSlot MailSlotTable[];
+extern mboxProc ProcTable[];
 
 void check_kernel_mode(char* functionName){
 
@@ -98,6 +98,7 @@ void addMailSlot(mailboxPtr box, slotPtr slot)
         box->slotsTail->next = slot;
         box->slotsTail = slot;
     }
+    box->numSlotsOccupied++;
 }
 
 int pidToSlot(int pid)
