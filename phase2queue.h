@@ -5,5 +5,6 @@
 
 void removeSlotsHead(mailboxPtr);
 void removeBlockedProcsHead(mailboxPtr);
+void addBlockedProcsTail(mailboxPtr, mboxProcPtr);
 
 #endif /* _PHASE2QUEUE_H */

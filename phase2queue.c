@@ -25,3 +25,20 @@ void removeBlockedProcsHead(mailboxPtr box)
         box->blockedProcsTail = NULL;
     }
 }
+
+/*
+ * Adds a process to box's list of blocked procs.
+ */
+void addBlockedProcsTail(mailboxPtr box, mboxProcPtr proc)
+{
+    if (box->blockedProcsHead == NULL)
+    {
+        box->blockedProcsHead = proc;
+        box->blockedProcsTail = proc;
+    }
+    else
+    {
+        box->blockedProcsTail->nextBlockedProc = proc;
+        box->blockedProcsTail = proc;
+    }
+}

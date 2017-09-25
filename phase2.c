@@ -20,7 +20,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 0;
+int debugflag2 = 1;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -309,15 +309,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 
         // Add the proc to box's list of blocked procs
         mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
-        box->blockedProcsTail->nextBlockedProc = proc;
-        box->blockedProcsTail = proc;
+        addBlockedProcsTail(box, proc);
 
         // Block until a message is available
         blockMe(STATUS_BLOCK_RECEIVE);
 
         // TODO check if zapped or if mailbox released while blocked
-
-
 
         // Clear the unblocked proc from the table
         clearProc(currentPid);
