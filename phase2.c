@@ -227,6 +227,21 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 
     // Otherwise, the message gets put into a slot
 
+    // ensure there is space in box for one more message, block if not
+    if(box->numSlotsOccupied == box->size)
+    {
+        // Add current to the list of procs blocked on box
+        int pid = getpid();
+        mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
+        initProc(pid, NULL, -1);
+        addBlockedProcsTail(box, proc);
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
+        }
+        blockMe(STATUS_BLOCK_SEND);
+    }
+
     // Get a slot for the new message
     slotPtr slot = findEmptyMailSlot();
     if (slot == NULL)
@@ -236,17 +251,6 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         USLOSS_Halt(1);
     }
 
-    // ensure there is space in box for one more message, block if not
-    if(box->numSlotsOccupied == box->size)
-    {
-        // Add current to the list of procs blocked on box
-        int currentPid = getpid();
-        mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
-        initProc(currentPid, NULL, -1);
-        addBlockedProcsTail(box, proc);
-
-        blockMe(STATUS_BLOCK_SEND);
-    }
     // TODO check if zapped or if box has been released
 
     // Add slot to box
@@ -343,10 +347,17 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // Check to see if anything is blocked on a send to box
     if (box->blockedProcsHead != NULL)
     {
-        // box contained a message, so the blocked proc must be blocked on a send
-        mboxProcPtr proc = box->blockedProcsHead;
-        removeBlockedProcsHead(box);
-        unblockProc(proc->pid);
+        // Check the amount of space left in box
+        if (box->slotsHead != NULL)   // Something is blocked on a send
+        {
+            mboxProcPtr proc = box->blockedProcsHead;
+            if (DEBUG2 && debugflag2)
+            {
+                USLOSS_Console("MboxReceive(): unblocking process %d.\n", proc->pid);
+            }
+            removeBlockedProcsHead(box);
+            unblockProc(proc->pid);
+        }
     }
 
     // Copy the message
