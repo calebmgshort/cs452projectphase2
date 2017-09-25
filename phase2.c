@@ -20,7 +20,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 1;
+int debugflag2 = 0;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -202,32 +202,30 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         return -1;
     }
 
-    // Check to see if anything is blocked on box
-    if (box->blockedProcsHead != NULL)
+    // Check to see if anything is blocked on a receive from box
+    if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
     {
-        // Check the amount of space left in box
-        if (box->slotsHead == NULL)   // Something is blocked on a receive
-        {
-            // Something is blocked on a receive
-            mboxProcPtr proc = box->blockedProcsHead;
-            removeBlockedProcsHead(box);
+        // Put the message directly into the proc's buffer
+        mboxProcPtr proc = box->blockedProcsHead;
+        removeBlockedProcsHead(box);
 
-            // Check that the message can be received
-            if (msg_size > proc->bufSize)
+        // Check that the message can be received
+        if (msg_size > proc->bufSize)
+        {
+            if (DEBUG2 && debugflag2)
             {
-                if (DEBUG2 && debugflag2)
-                {
-                    USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
-                }
-                proc->msgSize = -1;
-                // TODO should we discard messages that could not be delivered or keep them
+                USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
             }
-            memcpy(proc->msgBuf, msg_ptr, msg_size);
-            proc->msgSize = msg_size;
-            unblockProc(proc->pid);
-            return 0;
+            proc->msgSize = -1;
+            // TODO should we discard messages that could not be delivered or keep them
         }
+        memcpy(proc->msgBuf, msg_ptr, msg_size);
+        proc->msgSize = msg_size;
+        unblockProc(proc->pid);
+        return 0;
     }
+
+    // Otherwise, the message gets put into a slot
 
     // Get a slot for the new message
     slotPtr slot = findEmptyMailSlot();
@@ -241,6 +239,12 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     // ensure there is space in box for one more message, block if not
     if(box->numSlotsOccupied == box->size)
     {
+        // Add current to the list of procs blocked on box
+        int currentPid = getpid();
+        mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
+        initProc(currentPid, NULL, -1);
+        addBlockedProcsTail(box, proc);
+
         blockMe(STATUS_BLOCK_SEND);
     }
     // TODO check if zapped or if box has been released
@@ -252,7 +256,6 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     slot->mboxID = box->mboxID;
     memcpy(slot->data, msg_ptr, msg_size);
     slot->size = msg_size;
-
 
     return 0;
 } /* MboxSend */
@@ -298,9 +301,10 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -1;
     }
 
+    // Get the first next message
     slotPtr slot = box->slotsHead;
 
-    // Dequeue a message
+    // No message is in the box, so we block
     if (slot == NULL)
     {
         // Init the proc in the proc table
@@ -332,21 +336,18 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         }
         return -1;
     }
+
     // The slot is valid so we can remove it from the box
     removeSlotsHead(box);
 
-    // Check to see if anything is blocked on box
+    // Check to see if anything is blocked on a send to box
     if (box->blockedProcsHead != NULL)
     {
-        // Check the amount of space left in box
-        if (box->slotsHead != NULL)   // Something is blocked on a send
-        {
-            mboxProcPtr proc = box->blockedProcsHead;
-            removeBlockedProcsHead(box);
-            unblockProc(proc->pid);
-        }
+        // box contained a message, so the blocked proc must be blocked on a send
+        mboxProcPtr proc = box->blockedProcsHead;
+        removeBlockedProcsHead(box);
+        unblockProc(proc->pid);
     }
-
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);
