@@ -239,7 +239,18 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
         }
+
+        // Block until the message could be sent
         blockMe(STATUS_BLOCK_SEND);
+
+        // Clear proc from the table
+        clearProc(pid);
+        
+        // Check if the mailbox was released
+        if (proc->mboxReleased || isZapped())
+        {
+            return -3;
+        }
     }
 
     // Get a slot for the new message
@@ -250,8 +261,6 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         USLOSS_Console("MboxSend(): No more space in the slots table.\n");
         USLOSS_Halt(1);
     }
-
-    // TODO check if zapped or if box has been released
 
     // Add slot to box
     addMailSlot(box, slot);
@@ -322,11 +331,14 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         // Block until a message is available
         blockMe(STATUS_BLOCK_RECEIVE);
 
-        // TODO check if zapped or if mailbox released while blocked
-
         // Clear the unblocked proc from the table
         clearProc(currentPid);
 
+        // Check if zapped or if the mailbox was released
+        if (proc->mboxReleased || isZapped())
+        {
+            return -3;
+        }
 
         return proc->msgSize;
     }
@@ -348,19 +360,39 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     if (box->blockedProcsHead != NULL)
     {
         // Check the amount of space left in box
-        if (box->slotsHead != NULL)   // Something is blocked on a send
+        mboxProcPtr proc = box->blockedProcsHead;
+        if (DEBUG2 && debugflag2)
         {
-            mboxProcPtr proc = box->blockedProcsHead;
-            if (DEBUG2 && debugflag2)
-            {
-                USLOSS_Console("MboxReceive(): unblocking process %d.\n", proc->pid);
-            }
-            removeBlockedProcsHead(box);
-            unblockProc(proc->pid);
+            USLOSS_Console("MboxReceive(): unblocking process %d.\n", proc->pid);
         }
+        removeBlockedProcsHead(box);
+        unblockProc(proc->pid);
     }
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);
     return slot->size;
 } /* MboxReceive */
+
+int MboxRelease(int mbox_id)
+{
+    if (mbox_id < 0 || mbox_id > MAXMBOX)
+    {
+        return -1;
+    }
+    mailboxPtr box = &MailBoxTable[mboxIDToIndex(mbox_id)];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        return -1;
+    }
+    mboxProcPtr proc = box->blockedProcsHead;
+    while (proc != NULL)
+    {
+        // Flag proc as having a released mailbox and unblock
+        proc->mboxReleased = 1;
+        unblockProc(proc->pid);
+        proc = proc->nextBlockedProc;
+    }
+    // TODO check if zapped
+    return 0;
+} /* MboxRelease */

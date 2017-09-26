@@ -46,6 +46,7 @@ struct mboxProc
     void        *msgBuf;          // Pointer to the buffer that send should write its message to.
     int          bufSize;         // The size of the buffer
     int          msgSize;         // The size of the copied message. -1 if no message was copied
+    int          mboxReleased;    // 1 if this process was blocked on a released mailbox.
 };
 
 struct psrBits

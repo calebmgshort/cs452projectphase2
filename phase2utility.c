@@ -118,6 +118,7 @@ void initProc(int pid, void *msgBuf, int bufSize)
     proc->nextBlockedProc = NULL;
     proc->msgBuf = msgBuf;
     proc->bufSize = bufSize;
+    proc->mboxReleased = 0;
 }
 
 void clearProc(int pid)
