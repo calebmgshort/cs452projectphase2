@@ -168,7 +168,11 @@ int MboxCreate(int slots, int slot_size)
    Purpose - Put a message into a slot for the indicated mailbox.
              Block the sending process if no slot available.
    Parameters - mailbox id, pointer to data of msg, # of bytes in msg.
-   Returns - zero if successful, -1 if invalid args.
+   Return values:
+      -3: process zap’d or the mailbox released while blocked on the mailbox.
+      -1: illegal values given as arguments.
+       0: message sent successfully.
+0: message sent successfully.
    Side Effects - none.
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
@@ -200,6 +204,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
             USLOSS_Console("MboxSend(): msg_size out of range for box %d.\n", box->mboxID);
         }
         return -1;
+    }
+
+    if(isZapped())
+    {
+        return -3;
     }
 
     // Check to see if anything is blocked on a receive from box
@@ -245,7 +254,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 
         // Clear proc from the table
         clearProc(pid);
-        
+
         // Check if the mailbox was released
         if (proc->mboxReleased || isZapped())
         {
@@ -273,6 +282,107 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     return 0;
 } /* MboxSend */
 
+/* ------------------------------------------------------------------------
+   Name - MboxCondSend
+   Purpose - Conditionally send a message to a mailbox. Do not block the invoking process.
+             Rather, if there is no empty slot in the mailbox in which to place the message,
+             the value is returned. Also return -2 in the case that all the mailbox slots in the
+             system are used and none are available to allocate for this message.
+   Parameters - mailbox id, pointer to data of msg, # of bytes in msg.
+
+   Return values:
+      -3: process was zap’d.
+      -2: mailbox full, message not sent; or no slots available in the system.
+      -1: illegal values given as arguments.
+       0: message sent successfully.
+   Side Effects - none.
+   ----------------------------------------------------------------------- */
+int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
+{
+    // Get the mailbox that mbox_id corresponds to
+    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondSend(): mbox_id out of range.\n");
+        }
+        return -1;
+    }
+    mailboxPtr box = &MailBoxTable[mbox_id];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondSend(): mbox_id does not correspond to a mailbox.\n");
+        }
+        return -1;
+    }
+
+    // Check the message size
+    if (msg_size < 0 || msg_size > box->slotSize)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondSend(): msg_size out of range for box %d.\n", box->mboxID);
+        }
+        return -1;
+    }
+
+    if(isZapped())
+    {
+        return -3;
+    }
+
+    // Check to see if anything is blocked on a receive from box
+    if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
+    {
+        // Put the message directly into the proc's buffer
+        mboxProcPtr proc = box->blockedProcsHead;
+        removeBlockedProcsHead(box);
+
+        // Check that the message can be received
+        if (msg_size > proc->bufSize)
+        {
+            if (DEBUG2 && debugflag2)
+            {
+                USLOSS_Console("MboxCondSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
+            }
+            proc->msgSize = -1;
+            return -2;
+        }
+        memcpy(proc->msgBuf, msg_ptr, msg_size);
+        proc->msgSize = msg_size;
+        unblockProc(proc->pid);
+        return 0;
+    }
+
+    // Otherwise, the message gets put into a slot
+
+    // ensure there is space in box for one more message, return -2 if not
+    if(box->numSlotsOccupied == box->size)
+    {
+        return -2;
+    }
+
+    // Get a slot for the new message
+    slotPtr slot = findEmptyMailSlot();
+    if (slot == NULL)
+    {
+        // No space is available.
+        USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
+        return -2;
+    }
+
+    // Add slot to box
+    addMailSlot(box, slot);
+
+    // Init slot's fields
+    slot->mboxID = box->mboxID;
+    memcpy(slot->data, msg_ptr, msg_size);
+    slot->size = msg_size;
+
+    return 0;
+} /* MboxCondSend */
 
 /* ------------------------------------------------------------------------
    Name - MboxReceive
@@ -373,6 +483,96 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     memcpy(msg_ptr, slot->data, slot->size);
     return slot->size;
 } /* MboxReceive */
+
+/* ------------------------------------------------------------------------
+   Name - MboxCondReceive
+   Purpose - Conditionally receive a message from a mailbox. Do not block the invoking
+             process. Rather, if there is no message in the mailbox, the value -2 is returned.
+   Parameters - mailbox id, pointer to put data of msg, max # of bytes that
+                can be received.
+   Returns -
+      -3: process was zap’d while blocked on the mailbox.
+      -2: no message available to receive.
+      -1: illegal values given as arguments; or, message sent is too large for receiver’s
+          buffer (no data copied in this case).
+     >=0: the size of the message received.
+   Side Effects - none.
+   ----------------------------------------------------------------------- */
+int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
+{
+    // Get the mailbox that mbox_id corresponds to
+    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondReceive(): mbox_id out of range.\n");
+        }
+        return -1;
+    }
+    mailboxPtr box = &MailBoxTable[mbox_id];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondReceive(): mbox_id does not correspond to a mailbox.\n");
+        }
+        return -1;
+    }
+
+    // Check the message size
+    if (max_msg_size < 0)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondReceive(): max_msg_size out of range for box %d.\n", box->mboxID);
+        }
+        return -1;
+    }
+
+    if(isZapped())
+    {
+        return -3;
+    }
+
+    // Get the first next message
+    slotPtr slot = box->slotsHead;
+
+    // No message is in the box, so we block
+    if (slot == NULL)
+    {
+        return -2;
+    }
+
+    // Check that the message will fit in the buffer
+    if (slot->size > max_msg_size)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
+        }
+        return -1;
+    }
+
+    // The slot is valid so we can remove it from the box
+    removeSlotsHead(box);
+
+    // Check to see if anything is blocked on a send to box
+    if (box->blockedProcsHead != NULL)
+    {
+        // Check the amount of space left in box
+        mboxProcPtr proc = box->blockedProcsHead;
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondReceive(): unblocking process %d.\n", proc->pid);
+        }
+        removeBlockedProcsHead(box);
+        unblockProc(proc->pid);
+    }
+
+    // Copy the message
+    memcpy(msg_ptr, slot->data, slot->size);
+    return slot->size;
+} /* MboxCondReceive */
 
 int MboxRelease(int mbox_id)
 {
