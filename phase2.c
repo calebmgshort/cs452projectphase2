@@ -78,10 +78,10 @@ int start1(char *arg)
         ProcTable[i].pid = ID_NEVER_EXISTED;
     }
 
-    // Create dummy mailboxes to synch for testing TODO remove
-    for (int i = 0; i < 7; i++)
+    // Create mailboxes for devices
+    for (int i = 0; i < NUM_DEVICES; i++)
     {
-        MboxCreate(0, 0);
+        MboxCreate(0, MAX_MESSAGE);
     }
 
     // Enable interrupts
@@ -596,3 +596,48 @@ int MboxRelease(int mbox_id)
     // TODO check if zapped
     return 0;
 } /* MboxRelease */
+
+int waitDevice(int type, int unit, int *status)
+{
+    // Get the ID of the approrpiate mailbox
+    int mbox_ID;
+    int numUnits;
+    if (type == USLOSS_ALARM_DEV)
+    {
+        numUnits = USLOSS_ALARM_UNITS;
+        mbox_ID = 0;
+    }
+    else if (type == USLOSS_DISK_DEV)
+    {
+        numUnits = USLOSS_DISK_UNITS;
+        mbox_ID = 1;
+    }
+    else if (type == USLOSS_TERM_DEV)
+    {
+        numUnits = USLOSS_TERM_UNITS;
+        mbox_ID = 3;
+    }
+    else
+    {
+        USLOSS_Console("waitDevice(): type %d does not correspond to any device type.\n", type);
+        USLOSS_Halt(1);
+    }
+    // Check that the unit is correct
+    if (unit >= numUnits)
+    {
+        USLOSS_Console("waitDevice(): unit number %d is invalid for device type %d.\n", unit, type);
+        USLOSS_Halt(1);
+    }
+    // Adjust mbox_ID for unit number
+    mbox_ID += unit;
+
+    // Do the receive on the mailbox
+    MboxReceive(mbox_ID);
+
+    // Check if zapped
+    if (isZapped())
+    {
+        return -1;
+    }
+    return 0;
+}
