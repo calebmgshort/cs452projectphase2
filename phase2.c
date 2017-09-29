@@ -20,7 +20,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 0;
+int debugflag2 = 1;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -239,6 +239,26 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         return -3;
     }
 
+    // Handle 0 slots boxes
+    if (box->size == 0)
+    {
+        // Add current to the list of procs blocked on box
+        int pid = getpid();
+        mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
+        initProc(pid, NULL, -1);
+        addBlockedProcsTail(box, proc);
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
+        }
+
+        // Block until something is blocked on a receive
+        blockMe(STATUS_BLOCKED_SEND);
+
+        // redisable interrupts
+        disableInterrupts();
+    }
+
     // Check to see if anything is blocked on a receive from box
     if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
     {
@@ -255,10 +275,13 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
             }
             proc->msgSize = -1;
             // TODO Should we discard messages that could not be delivered or keep them? Currently, we discard them.
+            enableInterrupts();
+            return 0; // TODO what is the correct return value?
         }
         memcpy(proc->msgBuf, msg_ptr, msg_size);
         proc->msgSize = msg_size;
         unblockProc(proc->pid); // enables interrupts
+        enableInterrupts();
         return 0;
     }
 
@@ -399,9 +422,19 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
         memcpy(proc->msgBuf, msg_ptr, msg_size);
         proc->msgSize = msg_size;
         unblockProc(proc->pid); // enables interrupts
+        enableInterrupts();
         return 0;
     }
 
+    // Handle 0 slot boxes
+    if (box->size == 0)
+    {
+        // Nothing is blocked on a receive, so we cannot deliver a message
+        enableInterrupts();
+        return -2;
+    }
+
+ 
     // Otherwise, the message gets put into a slot
 
     // ensure there is space in box for one more message, return -2 if not
@@ -482,7 +515,15 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -1;
     }
 
-    // Get the first next message
+    // Handle 0 slot boxes TODO
+    if (box->size == 0 && box->blockedProcsHead != NULL)
+    {
+        // Check if proc is blocked on a send
+        mboxProcPtr proc = box->blockedProcsHead;
+        
+    }
+
+    // Get the first message
     slotPtr slot = box->slotsHead;
 
     // No message is in the box, so we block
@@ -701,6 +742,12 @@ int waitDevice(int type, int unit, int *status)
     disableInterrupts();
 
     int mboxID = getDeviceMboxID(type, unit);
+
+    if (DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("waitDevice(): mailbox corresponding to device type %d, unit %d is %d.\n", type, unit, mboxID);
+    }
+
     char buf[MAX_MESSAGE];
 
     // Do the receive on the mailbox
