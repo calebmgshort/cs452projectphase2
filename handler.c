@@ -4,6 +4,7 @@
 #include "message.h"
 
 extern int debugflag2;
+static int clockIteration = 0;
 
 /* an error method to handle invalid syscalls */
 void nullsys(sysargs *args)
@@ -29,10 +30,16 @@ void clockHandler2(int type, void* unitPointer)
     {
         USLOSS_Console("clockHandler2(): called with invalid unit number %d\n", unit);
     }
-    int mboxID = getDeviceMboxID(type, unit);
 
-    // TODO: When is timeslice called?
-    // TODO: Send to the clock io mailbox every 5th attempt
+    timeSlice();
+    static int clockIteration = 0;
+    clockIteration++;
+    if(clockIteration == 5)
+    {
+        int mboxID = getDeviceMboxID(type, unit);
+        MboxCondSend(mboxID, NULL, 0);
+        clockIteration = 0;
+    }
 
 
 } /* clockHandler */
