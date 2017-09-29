@@ -2,6 +2,7 @@
 #include <phase1.h>
 #include <phase2.h>
 #include "message.h"
+#include "phase2utility.h"
 
 extern int debugflag2;
 static int clockIteration = 0;
@@ -47,7 +48,7 @@ void clockHandler2(int type, void* unitPointer)
 } /* clockHandler */
 
 
-void diskHandler(int dev, int unit)
+void diskHandler(int type, void* unitPointer)
 {
 
     int unit = *((int*) unitPointer);
@@ -69,13 +70,13 @@ void diskHandler(int dev, int unit)
     int mboxID = getDeviceMboxID(type, unit);
     int* status;
     *status = -1;
-    USLOSS_DeviceInput(dev, unit, status);
+    USLOSS_DeviceInput(type, unit, status);
     MboxCondSend(mboxID, (void*) status, sizeof(int));
 
 } /* diskHandler */
 
 
-void termHandler(int dev, int unit)
+void termHandler(int type, void* unitPointer)
 {
 
     if (DEBUG2 && debugflag2)
@@ -87,7 +88,7 @@ void termHandler(int dev, int unit)
 } /* termHandler */
 
 
-void syscallHandler(int dev, int unit)
+void syscallHandler(int type, void* unitPointer)
 {
 
     if (DEBUG2 && debugflag2)
