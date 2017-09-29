@@ -49,6 +49,7 @@ struct mboxProc
     int          bufSize;         // The size of the buffer
     int          msgSize;         // The size of the copied message. -1 if no message was copied
     int          mboxReleased;    // 1 if this process was blocked on a released mailbox.
+    int          status;          // The status of this process
 };
 
 struct psrBits

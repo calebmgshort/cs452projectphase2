@@ -206,22 +206,9 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     disableInterrupts();
 
     // Get the mailbox that mbox_id corresponds to
-    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    mailboxPtr box = getMailbox(mbox_id);
+    if (box == NULL)
     {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxSend(): mbox_id out of range.\n");
-        }
-        enableInterrupts();
-        return -1;
-    }
-    mailboxPtr box = &MailBoxTable[mbox_id];
-    if (box->mboxID == ID_NEVER_EXISTED)
-    {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxSend(): mbox_id does not correspond to a mailbox.\n");
-        }
         enableInterrupts();
         return -1;
     }
@@ -248,17 +235,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if (box->size == 0)
     {
         // Add current to the list of procs blocked on box
-        int pid = getpid();
-        mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
-        initProc(pid, NULL, -1);
-        addBlockedProcsTail(box, proc);
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
-        }
-
-        // Block until something is blocked on a receive
-        blockMe(STATUS_BLOCKED_SEND);
+        blockCurrent(box, STATUS_BLOCKED_SEND, NULL, -1);
 
         // redisable interrupts
         disableInterrupts();
@@ -296,19 +273,9 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if(box->numSlotsOccupied == box->size)
     {
         // Add current to the list of procs blocked on box
-        int pid = getpid();
-        mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
-        initProc(pid, NULL, -1);
-        addBlockedProcsTail(box, proc);
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
-        }
+        blockCurrent(box, STATUS_BLOCK_SEND, NULL, -1);
 
-        // Block until the message could be sent
-        blockMe(STATUS_BLOCK_SEND); // enables interrupts
-
-        // Redisable interrupts after call to blockMe
+        // Redisable interrupts after call to blockCurrent
         disableInterrupts();
 
         // Clear proc from the table
@@ -372,23 +339,9 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     disableInterrupts();
 
     // Get the mailbox that mbox_id corresponds to
-    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    mailboxPtr box = getMailbox(mbox_id);
+    if (box == NULL)
     {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxCondSend(): mbox_id out of range.\n");
-        }
-
-        enableInterrupts();
-        return -1;
-    }
-    mailboxPtr box = &MailBoxTable[mbox_id];
-    if (box->mboxID == ID_NEVER_EXISTED)
-    {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxCondSend(): mbox_id does not correspond to a mailbox.\n");
-        }
         enableInterrupts();
         return -1;
     }
@@ -499,22 +452,9 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     disableInterrupts();
 
     // Get the mailbox that mbox_id corresponds to
-    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    mailboxPtr box = getMailbox(mbox_id);
+    if (box == NULL)
     {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxReceive(): mbox_id out of range.\n");
-        }
-        enableInterrupts();
-        return -1;
-    }
-    mailboxPtr box = &MailBoxTable[mbox_id];
-    if (box->mboxID == ID_NEVER_EXISTED)
-    {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxReceive(): mbox_id does not correspond to a mailbox.\n");
-        }
         enableInterrupts();
         return -1;
     }
@@ -544,16 +484,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // No message is in the box, so we block
     if (slot == NULL)
     {
-        // Init the proc in the proc table
-        int currentPid = getpid();
-        initProc(currentPid, msg_ptr, max_msg_size);
-
-        // Add the proc to box's list of blocked procs
-        mboxProcPtr proc = &ProcTable[pidToSlot(currentPid)];
-        addBlockedProcsTail(box, proc);
-
-        // Block until a message is available
-        blockMe(STATUS_BLOCK_RECEIVE); // enables interrupts
+        blockCurrent(box, STATUS_BLOCK_RECEIVE, msg_ptr, max_msg_size);
 
         // redisable interrupts
         disableInterrupts();
@@ -633,22 +564,9 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     disableInterrupts();
 
     // Get the mailbox that mbox_id corresponds to
-    if (mbox_id < 0 || mbox_id >= MAXMBOX)
+    mailboxPtr box = getMailbox(mbox_id);
+    if (box == NULL)
     {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxCondReceive(): mbox_id out of range.\n");
-        }
-        enableInterrupts();
-        return -1;
-    }
-    mailboxPtr box = &MailBoxTable[mbox_id];
-    if (box->mboxID == ID_NEVER_EXISTED)
-    {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxCondReceive(): mbox_id does not correspond to a mailbox.\n");
-        }
         enableInterrupts();
         return -1;
     }

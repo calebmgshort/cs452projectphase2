@@ -10,6 +10,9 @@ extern mailSlot MailSlotTable[];
 extern mboxProc ProcTable[];
 extern int debugflag2;
 
+/*
+ * Halts if called in user mode.
+ */
 void check_kernel_mode(char* funcName)
 {
     // test if in kernel mode; halt if in user mode
@@ -20,6 +23,9 @@ void check_kernel_mode(char* funcName)
     }
 }
 
+/*
+ * Disables interrupts
+ */
 void disableInterrupts()
 {
     // check for kernel mode
@@ -41,6 +47,9 @@ void disableInterrupts()
     }
 }
 
+/*
+ * Enables interrupts
+ */
 void enableInterrupts()
 {
     // check for interrupts
@@ -63,11 +72,71 @@ void enableInterrupts()
 }
 
 /*
- * Converts an mboxID to an index in the mailbox table
+ * Returns a pointer to the mailbox that id correpsonds to
  */
-int mboxIDToIndex(int id)
+mailboxPtr getMailbox(int mboxID)
 {
-    return id % MAXMBOX;
+    // Get the mailbox that mbox_id corresponds to
+    if (mboxID < 0 || mboxID >= MAXMBOX)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("getMailbox(): mboxID %d out of range.\n", mboxID);
+        }
+        return NULL;
+    }
+    mailboxPtr box = &MailBoxTable[mboxID];
+    if (box->mboxID == ID_NEVER_EXISTED)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("getMailbox(): mboxID %d does not correspond to a mailbox.\n", mboxID);
+        }
+        return NULL;
+    }
+    return box;
+}
+
+/*
+ * Blocks the current process and makes a process table entry for it. Enables 
+ * interrupts.
+ */
+void blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
+{
+    // Add current to the list of procs blocked on box
+    int pid = getpid();
+    mboxProcPtr proc = &ProcTable[pid % MAXPROC];
+    initProc(proc, status, msgBuf, bufSize);
+    addBlockedProcsTail(box, proc);
+    if (DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
+    }
+
+    blockMe(status); // enables interrupts
+}
+
+static void initProc(mboxProcPtr proc, int status, void *msgBuf, int bufSize)
+{
+    if (proc->pid != ID_NEVER_EXISTED)
+    {
+        USLOSS_Console("initProc(): Trying to overwrite existing proc entry.  Halting...\n");
+        USLOSS_Halt(1);
+    }
+    proc->pid = pid;
+    proc->status = status;
+    proc->nextBlockedProc = NULL;
+    proc->msgBuf = msgBuf;
+    proc->bufSize = bufSize;
+    proc->mboxReleased = 0;
+}
+
+/*
+ * Clears space in the process table that corresponds to the given pid.
+ */
+void clearProc(int pid)
+{
+    ProcTable[pidToSlot(pid)].pid = ID_NEVER_EXISTED;
 }
 
 /*
@@ -140,34 +209,6 @@ void addMailSlot(mailboxPtr box, slotPtr slot)
         box->slotsTail = slot;
     }
     box->numSlotsOccupied++;
-}
-
-int pidToSlot(int pid)
-{
-    return pid % MAXPROC;
-}
-
-void initProc(int pid, void *msgBuf, int bufSize)
-{
-    mboxProcPtr proc = &ProcTable[pidToSlot(pid)];
-    if (proc->pid != ID_NEVER_EXISTED)
-    {
-        USLOSS_Console("initProcInTable(): Trying to overwrite existing proc entry.  Halting...\n");
-        USLOSS_Halt(1);
-    }
-    proc->pid = pid;
-    proc->nextBlockedProc = NULL;
-    proc->msgBuf = msgBuf;
-    proc->bufSize = bufSize;
-    proc->mboxReleased = 0;
-}
-
-/*
- * Clears space in the process table that corresponds to the given pid.
- */
-void clearProc(int pid)
-{
-    ProcTable[pidToSlot(pid)].pid = ID_NEVER_EXISTED;
 }
 
 int getDeviceMboxID(int type, int unit)
