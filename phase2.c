@@ -20,7 +20,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 0;
+int debugflag2 = 1;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -453,7 +453,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
     if(DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxReceive(): called.\n");
+        USLOSS_Console("MboxReceive(): called. Checking mode and disabling interrupts.\n");
     }
 
     // Check kernel mode
@@ -463,6 +463,10 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     disableInterrupts();
 
     // Get the mailbox that mbox_id corresponds to
+    if (DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxReceive(): getting mailbox corresponding to id %d.\n", mbox_id);
+    }
     mailboxPtr box = getMailbox(mbox_id);
     if (box == NULL)
     {
@@ -475,7 +479,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     {
         if (DEBUG2 && debugflag2)
         {
-            USLOSS_Console("MboxReceive(): max_msg_size out of range for box %d.\n", box->mboxID);
+            USLOSS_Console("MboxReceive(): max_msg_size out of range for box %d.\n", mbox_id);
         }
         enableInterrupts();
         return -1;
@@ -484,10 +488,20 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // Handle 0 slot boxes
     if (box->size == 0 && box->blockedProcsHead != NULL)
     {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): box %d has 0 slots and a blocked process.\n", mbox_id);
+        }
+
         // Check if proc is blocked on a send
         mboxProcPtr proc = box->blockedProcsHead;
         if (proc->status == STATUS_BLOCK_SEND)
         {
+            if (DEBUG2 && debugflag2)
+            {
+                USLOSS_Console("MboxReceive(): process was blocked on a send. Receiving message directly from proc buffer.\n");
+            }
+
             // Check that the message will fit in the buffer
             if (proc->msgSize > max_msg_size)
             {
@@ -502,6 +516,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
             enableInterrupts();
             return 0;
         }
+        // If we're blocked on a receive, procede like normal
     }
 
     // Get the first message
@@ -510,7 +525,16 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // No message is in the box, so we block
     if (slot == NULL)
     {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): No message contained in box %d.\n", mbox_id);
+        }
         int mboxReleased = blockCurrent(box, STATUS_BLOCK_RECEIVE, msg_ptr, max_msg_size);
+
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxReceive(): Unblocked.\n");
+        }
 
         // redisable interrupts
         disableInterrupts();

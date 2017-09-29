@@ -114,7 +114,7 @@ int blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
     addBlockedProcsTail(box, proc);
     if (DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxSend(): blocking process %d.\n", proc->pid);
+        USLOSS_Console("blockCurrent(): blocking process %d.\n", proc->pid);
     }
 
     blockMe(status); // enables interrupts
