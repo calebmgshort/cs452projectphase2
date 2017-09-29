@@ -14,6 +14,8 @@ typedef struct mailbox  * mailboxPtr;
 typedef struct mboxProc   mboxProc;
 typedef struct mboxProc * mboxProcPtr;
 
+typedef struct systemArgs sysargs;
+
 struct mailbox
 {
     int          mboxID;           // The ID of this mailbox
