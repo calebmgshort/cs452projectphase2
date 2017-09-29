@@ -17,12 +17,12 @@ void nullsys(sysargs *args)
 
 void clockHandler2(int type, void* unitPointer)
 {
-    int unit = *((int*) unitPointer);
-
     if (DEBUG2 && debugflag2)
     {
         USLOSS_Console("clockHandler2(): called\n");
     }
+    long unit = (long) unitPointer;
+
     if(type != USLOSS_CLOCK_DEV)
     {
         USLOSS_Console("clockHandler2(): called with wrong type %d\n", type);
@@ -50,13 +50,11 @@ void clockHandler2(int type, void* unitPointer)
 
 void diskHandler(int type, void* unitPointer)
 {
-
-    int unit = *((int*) unitPointer);
-
     if (DEBUG2 && debugflag2)
     {
         USLOSS_Console("diskHandler(): called\n");
     }
+    long unit = (long) unitPointer;
     if(type != USLOSS_DISK_DEV)
     {
         USLOSS_Console("diskHandler(): called with wrong type %d\n", type);
