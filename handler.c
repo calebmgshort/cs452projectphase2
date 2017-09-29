@@ -68,10 +68,9 @@ void diskHandler(int type, void* unitPointer)
         USLOSS_Halt(1);
     }
     int mboxID = getDeviceMboxID(type, unit);
-    int* status;
-    *status = -1;
-    USLOSS_DeviceInput(type, unit, status);
-    MboxCondSend(mboxID, (void*) status, sizeof(int));
+    int status = -1;
+    USLOSS_DeviceInput(type, unit, &status);
+    MboxCondSend(mboxID, (void*) &status, sizeof(int));
 
 } /* diskHandler */
 

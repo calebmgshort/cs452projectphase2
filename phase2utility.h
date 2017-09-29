@@ -10,8 +10,9 @@ int mboxIDToIndex(int);
 int getNextMboxID();
 slotPtr findEmptyMailSlot();
 void addMailSlot(mailboxPtr, slotPtr);
-void initProc(int, void *, int);
 void clearProc(int);
 int pidToSlot(int);
 int getDeviceMboxID(int, int);
+mailboxPtr getMailbox(int);
+int blockCurrent(mailboxPtr, int, void *, int);
 #endif

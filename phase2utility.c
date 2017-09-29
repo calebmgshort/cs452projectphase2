@@ -4,11 +4,14 @@
 #include <stdlib.h>
 
 #include "phase2utility.h"
+#include "phase2queue.h"
 
 extern mailbox MailBoxTable[];
 extern mailSlot MailSlotTable[];
 extern mboxProc ProcTable[];
 extern int debugflag2;
+
+static void initProc(mboxProcPtr, int, void *, int);
 
 /*
  * Halts if called in user mode.
@@ -99,9 +102,10 @@ mailboxPtr getMailbox(int mboxID)
 
 /*
  * Blocks the current process and makes a process table entry for it. Enables 
- * interrupts.
+ * interrupts. Returns 1 if the mailbox was released while blocked. Returns 0
+ * otherwise.
  */
-void blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
+int blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
 {
     // Add current to the list of procs blocked on box
     int pid = getpid();
@@ -114,6 +118,8 @@ void blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
     }
 
     blockMe(status); // enables interrupts
+
+    return proc->mboxReleased;
 }
 
 static void initProc(mboxProcPtr proc, int status, void *msgBuf, int bufSize)
@@ -123,7 +129,7 @@ static void initProc(mboxProcPtr proc, int status, void *msgBuf, int bufSize)
         USLOSS_Console("initProc(): Trying to overwrite existing proc entry.  Halting...\n");
         USLOSS_Halt(1);
     }
-    proc->pid = pid;
+    proc->pid = getpid();
     proc->status = status;
     proc->nextBlockedProc = NULL;
     proc->msgBuf = msgBuf;
@@ -136,7 +142,7 @@ static void initProc(mboxProcPtr proc, int status, void *msgBuf, int bufSize)
  */
 void clearProc(int pid)
 {
-    ProcTable[pidToSlot(pid)].pid = ID_NEVER_EXISTED;
+    ProcTable[pid % MAXPROC].pid = ID_NEVER_EXISTED;
 }
 
 /*

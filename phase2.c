@@ -20,7 +20,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 1;
+int debugflag2 = 0;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -157,11 +157,10 @@ int MboxCreate(int slots, int slot_size)
         enableInterrupts();
         return -1;
     }
-    int index = mboxIDToIndex(id);
-    mailboxPtr box = &MailBoxTable[index];
+    mailboxPtr box = &MailBoxTable[id];
     if (DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxCreate(): Creating mailbox with id %d at index %d.\n", id, index);
+        USLOSS_Console("MboxCreate(): Creating mailbox with id %d.\n", id);
     }
 
     // Set fields
@@ -261,7 +260,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if (box->size == 0)
     {
         // Block until the message is received
-        blockCurrent(box, STATUS_BLOCK_SEND, msg_ptr, msg_size);
+        int mboxReleased = blockCurrent(box, STATUS_BLOCK_SEND, msg_ptr, msg_size);
 
         // redisable interrupts
         disableInterrupts();
@@ -269,12 +268,13 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         // Mark the current proc as unblocked
         clearProc(getpid());
 
-        enableInterrupts();
-        // Check if we were zapped while blocked
-        if (isZapped())
+        // Check if we were zapped while blocked or if the mailbox was released
+        if (mboxReleased || isZapped())
         {
+            enableInterrupts();
             return -3;
         }
+        enableInterrupts();
         return 0;
     }
 
@@ -284,7 +284,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if(box->numSlotsOccupied == box->size)
     {
         // Add current to the list of procs blocked on box
-        blockCurrent(box, STATUS_BLOCK_SEND, NULL, -1);
+        int mboxReleased = blockCurrent(box, STATUS_BLOCK_SEND, NULL, -1);
 
         // Redisable interrupts after call to blockCurrent
         disableInterrupts();
@@ -293,7 +293,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         clearProc(getpid());
 
         // Check if the mailbox was released
-        if (proc->mboxReleased || isZapped())
+        if (mboxReleased || isZapped())
         {
             enableInterrupts();
             return -3;
@@ -510,23 +510,23 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // No message is in the box, so we block
     if (slot == NULL)
     {
-        blockCurrent(box, STATUS_BLOCK_RECEIVE, msg_ptr, max_msg_size);
+        int mboxReleased = blockCurrent(box, STATUS_BLOCK_RECEIVE, msg_ptr, max_msg_size);
 
         // redisable interrupts
         disableInterrupts();
 
         // Clear the unblocked proc from the table
-        clearProc(currentPid);
+        clearProc(getpid());
 
         // Check if zapped or if the mailbox was released
-        if (proc->mboxReleased || isZapped())
+        if (mboxReleased || isZapped())
         {
             enableInterrupts();
             return -3;
         }
 
         enableInterrupts();
-        return proc->msgSize;
+        return ProcTable[getpid() % MAXPROC].msgSize;
     }
 
     // Check that the message will fit in the buffer
@@ -618,7 +618,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     if (box->size == 0 && box->blockedProcsHead != NULL)
     {
         mboxProcPtr proc = box->blockedProcsHead;
-        if (proc->staus == STATUS_BLOCK_SEND)
+        if (proc->status == STATUS_BLOCK_SEND)
         {
             // Check that the message will fit in the buffer
             if (proc->msgSize > max_msg_size)
@@ -687,17 +687,13 @@ int MboxRelease(int mbox_id)
     // Disable interrupts
     disableInterrupts();
 
-    if (mbox_id < 0 || mbox_id > MAXMBOX)
+    mailboxPtr box = getMailbox(mbox_id);
+    if (box == NULL)
     {
         enableInterrupts();
         return -1;
     }
-    mailboxPtr box = &MailBoxTable[mboxIDToIndex(mbox_id)];
-    if (box->mboxID == ID_NEVER_EXISTED)
-    {
-        enableInterrupts();
-        return -1;
-    }
+
     mboxProcPtr proc = box->blockedProcsHead;
     while (proc != NULL)
     {
