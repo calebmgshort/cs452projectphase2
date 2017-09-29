@@ -599,40 +599,18 @@ int MboxRelease(int mbox_id)
 
 int waitDevice(int type, int unit, int *status)
 {
-    // Get the ID of the approrpiate mailbox
-    int mbox_ID;
-    int numUnits;
-    if (type == USLOSS_ALARM_DEV)
-    {
-        numUnits = USLOSS_ALARM_UNITS;
-        mbox_ID = 0;
-    }
-    else if (type == USLOSS_DISK_DEV)
-    {
-        numUnits = USLOSS_DISK_UNITS;
-        mbox_ID = 1;
-    }
-    else if (type == USLOSS_TERM_DEV)
-    {
-        numUnits = USLOSS_TERM_UNITS;
-        mbox_ID = 3;
-    }
-    else
-    {
-        USLOSS_Console("waitDevice(): type %d does not correspond to any device type.\n", type);
-        USLOSS_Halt(1);
-    }
-    // Check that the unit is correct
-    if (unit >= numUnits)
-    {
-        USLOSS_Console("waitDevice(): unit number %d is invalid for device type %d.\n", unit, type);
-        USLOSS_Halt(1);
-    }
-    // Adjust mbox_ID for unit number
-    mbox_ID += unit;
+    int mboxID = getDeviceMboxID(type, unit);
+    char buf[MAX_MESSAGE];
 
     // Do the receive on the mailbox
-    MboxReceive(mbox_ID);
+    MboxReceive(mboxID, buf, MAX_MESSAGE);
+
+    // Check the status of the device
+    if (USLOSS_DeviceInput(type, unit, status) != USLOSS_DEV_OK)
+    {
+        USLOSS_Console("waitDevice(): Device type %d, unit %d is invalid.\n", type, unit);
+        USLOSS_Halt(1);
+    }
 
     // Check if zapped
     if (isZapped())

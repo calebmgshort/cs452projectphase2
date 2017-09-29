@@ -121,7 +121,45 @@ void initProc(int pid, void *msgBuf, int bufSize)
     proc->mboxReleased = 0;
 }
 
+/*
+ * Clears space in the process table that corresponds to the given pid.
+ */
 void clearProc(int pid)
 {
     ProcTable[pidToSlot(pid)].pid = ID_NEVER_EXISTED;
+}
+
+int getDeviceMboxID(int type, int unit)
+{
+    int mboxID;
+    int numUnits;
+    if (type == USLOSS_CLOCK_DEV)
+    {
+        numUnits = USLOSS_CLOCK_UNITS;
+        mboxID = 0;
+    }
+    else if (type == USLOSS_DISK_DEV)
+    {
+        numUnits = USLOSS_DISK_UNITS;
+        mboxID = 1;
+    }
+    else if (type == USLOSS_TERM_DEV)
+    {
+        numUnits = USLOSS_TERM_UNITS;
+        mboxID = 3;
+    }
+    else
+    {
+        USLOSS_Console("getDeviceMboxID(): type %d does not correspond to any device type.\n", type);
+        USLOSS_Halt(1);
+    }
+    // Check that the unit is correct
+    if (unit >= numUnits)
+    {
+        USLOSS_Console("getDeviceMboxID(): unit number %d is invalid for device type %d.\n", unit, type);
+        USLOSS_Halt(1);
+    }
+    // Adjust mbox_ID for unit number
+    mboxID += unit;
+    return mboxID;
 }
