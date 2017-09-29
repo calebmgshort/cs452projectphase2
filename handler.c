@@ -75,12 +75,25 @@ void diskHandler(int type, void* unitPointer)
 
 void termHandler(int type, void* unitPointer)
 {
-
     if (DEBUG2 && debugflag2)
     {
         USLOSS_Console("termHandler(): called\n");
     }
-
+    long unit = (long) unitPointer;
+    if (type != USLOSS_TERM_DEV)
+    {
+        USLOSS_Console("termHandler(): called with wrong type %d.\n", type);
+        USLOSS_Halt(1);
+    }
+    if (unit < 0 || unit >= USLOSS_TERM_UNITS)
+    {
+        USLOSS_Console("termHandler(): called with invalid unit number %d.\n", unit);
+        USLOSS_Halt(1);
+    }
+    int mboxID = getDeviceMboxID(type, unit);
+    int status = -1;
+    USLOSS_DeviceInput(type, unit, &status);
+    MboxCondSend(mboxID, (void*) &status, sizeof(int));
 
 } /* termHandler */
 

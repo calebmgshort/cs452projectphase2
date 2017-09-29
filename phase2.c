@@ -14,13 +14,14 @@
 #include "phase2.h"
 #include "phase2utility.h"
 #include "phase2queue.h"
+#include "handler.h"
 
 /* ------------------------- Prototypes ----------------------------------- */
 int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 0;
+int debugflag2 = 1;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
@@ -30,9 +31,6 @@ mailSlot MailSlotTable[MAXSLOTS];
 
 // The message process table
 mboxProc ProcTable[MAXPROC];
-
-extern void clockHandler2(int, void *);
-
 
 // also need array of mail slots, array of function ptrs to system call
 // handlers, ...
@@ -90,6 +88,8 @@ int start1(char *arg)
 
     // Initialize the interrupt handlers
     USLOSS_IntVec[USLOSS_CLOCK_INT] = clockHandler2;
+    USLOSS_IntVec[USLOSS_DISK_INT] = diskHandler;
+    USLOSS_IntVec[USLOSS_TERM_INT] = termHandler;
 
     // Enable interrupts
     enableInterrupts();
