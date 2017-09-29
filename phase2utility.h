@@ -12,6 +12,6 @@ slotPtr findEmptyMailSlot();
 void addMailSlot(mailboxPtr, slotPtr);
 void initProc(int, void *, int);
 void clearProc(int);
-int pidToSlot(int pid);
-
+int pidToSlot(int);
+int getDeviceMboxID(int, int);
 #endif
