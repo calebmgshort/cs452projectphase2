@@ -231,16 +231,6 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         return -3;
     }
 
-    // Handle 0 slots boxes
-    if (box->size == 0)
-    {
-        // Add current to the list of procs blocked on box
-        blockCurrent(box, STATUS_BLOCKED_SEND, NULL, -1);
-
-        // redisable interrupts
-        disableInterrupts();
-    }
-
     // Check to see if anything is blocked on a receive from box
     if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
     {
@@ -267,6 +257,27 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         return 0;
     }
 
+    // Handle 0 slot boxes
+    if (box->size == 0)
+    {
+        // Block until the message is received
+        blockCurrent(box, STATUS_BLOCK_SEND, msg_ptr, msg_size);
+
+        // redisable interrupts
+        disableInterrupts();
+
+        // Mark the current proc as unblocked
+        clearProc(getpid());
+
+        enableInterrupts();
+        // Check if we were zapped while blocked
+        if (isZapped())
+        {
+            return -3;
+        }
+        return 0;
+    }
+
     // Otherwise, the message gets put into a slot
 
     // ensure there is space in box for one more message, block if not
@@ -279,7 +290,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         disableInterrupts();
 
         // Clear proc from the table
-        clearProc(pid);
+        clearProc(getpid());
 
         // Check if the mailbox was released
         if (proc->mboxReleased || isZapped())
@@ -470,12 +481,27 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -1;
     }
 
-    // Handle 0 slot boxes TODO
+    // Handle 0 slot boxes
     if (box->size == 0 && box->blockedProcsHead != NULL)
     {
         // Check if proc is blocked on a send
         mboxProcPtr proc = box->blockedProcsHead;
-        
+        if (proc->status == STATUS_BLOCK_SEND)
+        {
+            // Check that the message will fit in the buffer
+            if (proc->msgSize > max_msg_size)
+            {
+                return -1;
+            }
+
+            memcpy(msg_ptr, proc->msgBuf, proc->msgSize);
+
+            // Unblock the process
+            unblockProc(proc->pid);
+
+            enableInterrupts();
+            return 0;
+        }
     }
 
     // Get the first message
@@ -587,6 +613,27 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     {
         enableInterrupts();
         return -3;
+    }
+
+    if (box->size == 0 && box->blockedProcsHead != NULL)
+    {
+        mboxProcPtr proc = box->blockedProcsHead;
+        if (proc->staus == STATUS_BLOCK_SEND)
+        {
+            // Check that the message will fit in the buffer
+            if (proc->msgSize > max_msg_size)
+            {
+                return -1;
+            }
+
+            memcpy(msg_ptr, proc->msgBuf, proc->msgSize);
+
+            // Unblock the process
+            unblockProc(proc->pid);
+
+            enableInterrupts();
+            return 0;
+        }
     }
 
     // Get the first next message
