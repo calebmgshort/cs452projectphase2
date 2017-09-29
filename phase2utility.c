@@ -131,8 +131,8 @@ void clearProc(int pid)
 
 int getDeviceMboxID(int type, int unit)
 {
-    int mboxID;
-    int numUnits;
+    int mboxID = -1;
+    int numUnits = -1;
     if (type == USLOSS_CLOCK_DEV)
     {
         numUnits = USLOSS_CLOCK_UNITS;
