@@ -21,7 +21,7 @@ int start1 (char *);
 extern int start2 (char *);
 
 /* -------------------------- Globals ------------------------------------- */
-int debugflag2 = 1;
+int debugflag2 = 0;
 
 // the mail boxes
 mailbox MailBoxTable[MAXMBOX];
