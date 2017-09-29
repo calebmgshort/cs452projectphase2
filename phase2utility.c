@@ -8,17 +8,58 @@
 extern mailbox MailBoxTable[];
 extern mailSlot MailSlotTable[];
 extern mboxProc ProcTable[];
+extern int debugflag2;
 
-void check_kernel_mode(char* functionName){
-
+void check_kernel_mode(char* funcName)
+{
+    // test if in kernel mode; halt if in user mode
+    if ((USLOSS_PsrGet() & USLOSS_PSR_CURRENT_MODE) == 0)
+    {
+        USLOSS_Console("%s(): called while in user mode. Halting...\n", funcName);
+        USLOSS_Halt(1);
+    }
 }
 
-void disableInterrupts(){
+void disableInterrupts()
+{
+    // check for kernel mode
+    check_kernel_mode("disableInterrupts");
 
+    // get the current value of the psr
+    unsigned int psr = USLOSS_PsrGet();
+
+    // set the current interrupt bit to 0
+    psr = psr & ~USLOSS_PSR_CURRENT_INT;
+
+    // if USLOSS gives an error, we've done something wrong!
+    if (USLOSS_PsrSet(psr) == USLOSS_ERR_INVALID_PSR)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("disableInterrupts(): Bug in disableInterrupts.");
+        }
+    }
 }
 
-void enableInterrupts(){
+void enableInterrupts()
+{
+    // check for interrupts
+    check_kernel_mode("enableInterrupts");
 
+    // get the current value of the psr
+    unsigned int psr = USLOSS_PsrGet();
+
+    // set the current interrupt bit to 1
+    psr = psr | USLOSS_PSR_CURRENT_INT;
+
+    // if USLOSS gives an error, we've done something wrong!
+    if (USLOSS_PsrSet(psr) == USLOSS_ERR_INVALID_PSR)
+    {
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("enableInterrupts(): Bug in enableInterrupts.");
+        }
+    }
 }
 
 /*
