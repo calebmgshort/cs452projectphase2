@@ -31,6 +31,9 @@ mailSlot MailSlotTable[MAXSLOTS];
 // The message process table
 mboxProc ProcTable[MAXPROC];
 
+extern void clockHandler2(int, void *);
+
+
 // also need array of mail slots, array of function ptrs to system call
 // handlers, ...
 
@@ -82,7 +85,11 @@ int start1(char *arg)
     for (int i = 0; i < NUM_DEVICES; i++)
     {
         MboxCreate(0, MAX_MESSAGE);
+        disableInterrupts();
     }
+
+    // Initialize the interrupt handlers
+    USLOSS_IntVec[USLOSS_CLOCK_INT] = clockHandler2;
 
     // Enable interrupts
     enableInterrupts();
@@ -113,14 +120,20 @@ int start1(char *arg)
    ----------------------------------------------------------------------- */
 int MboxCreate(int slots, int slot_size)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxCreate");
+
+    // Disable interrupts
+    disableInterrupts();
+
     // Check args
-    // TODO return -1 or -2 on incorrect args?
     if (slots < 0 || slots > MAXSLOTS)
     {
         if (DEBUG2 && debugflag2)
         {
             USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid number of slots (%d).\n");
         }
+        enableInterrupts();
         return -1;
     }
     if (slot_size < 0 || slot_size > MAX_MESSAGE)
@@ -129,6 +142,7 @@ int MboxCreate(int slots, int slot_size)
         {
             USLOSS_Console("MboxCreate(): Tried to create a mailbox with an invalid slot size (%d).\n");
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -140,6 +154,7 @@ int MboxCreate(int slots, int slot_size)
         {
             USLOSS_Console("MboxCreate(): No mailbox slots remaining.\n");
         }
+        enableInterrupts();
         return -1;
     }
     int index = mboxIDToIndex(id);
@@ -159,6 +174,8 @@ int MboxCreate(int slots, int slot_size)
     box->blockedProcsHead = NULL;
     box->blockedProcsTail = NULL;
 
+    enableInterrupts();
+
     // return the id of the new box
     return id;
 } /* MboxCreate */
@@ -177,6 +194,12 @@ int MboxCreate(int slots, int slot_size)
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxSend");
+
+    // Disable interrupts
+    disableInterrupts();
+
     // Get the mailbox that mbox_id corresponds to
     if (mbox_id < 0 || mbox_id >= MAXMBOX)
     {
@@ -184,6 +207,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxSend(): mbox_id out of range.\n");
         }
+        enableInterrupts();
         return -1;
     }
     mailboxPtr box = &MailBoxTable[mbox_id];
@@ -193,6 +217,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxSend(): mbox_id does not correspond to a mailbox.\n");
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -203,11 +228,14 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxSend(): msg_size out of range for box %d.\n", box->mboxID);
         }
+        enableInterrupts();
         return -1;
     }
 
-    if(isZapped())
+    // Check if we were zapped beforehand
+    if (isZapped())
     {
+        enableInterrupts();
         return -3;
     }
 
@@ -226,11 +254,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
                 USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
             }
             proc->msgSize = -1;
-            // TODO should we discard messages that could not be delivered or keep them
+            // TODO Should we discard messages that could not be delivered or keep them? Currently, we discard them.
         }
         memcpy(proc->msgBuf, msg_ptr, msg_size);
         proc->msgSize = msg_size;
-        unblockProc(proc->pid);
+        unblockProc(proc->pid); // enables interrupts
         return 0;
     }
 
@@ -250,7 +278,10 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         }
 
         // Block until the message could be sent
-        blockMe(STATUS_BLOCK_SEND);
+        blockMe(STATUS_BLOCK_SEND); // enables interrupts
+
+        // Redisable interrupts after call to blockMe
+        disableInterrupts();
 
         // Clear proc from the table
         clearProc(pid);
@@ -258,6 +289,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
         // Check if the mailbox was released
         if (proc->mboxReleased || isZapped())
         {
+            enableInterrupts();
             return -3;
         }
     }
@@ -279,6 +311,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     memcpy(slot->data, msg_ptr, msg_size);
     slot->size = msg_size;
 
+    enableInterrupts();
     return 0;
 } /* MboxSend */
 
@@ -299,6 +332,12 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxCondSend");
+
+    // Disable interrupts
+    disableInterrupts();
+
     // Get the mailbox that mbox_id corresponds to
     if (mbox_id < 0 || mbox_id >= MAXMBOX)
     {
@@ -306,6 +345,8 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxCondSend(): mbox_id out of range.\n");
         }
+
+        enableInterrupts();
         return -1;
     }
     mailboxPtr box = &MailBoxTable[mbox_id];
@@ -315,6 +356,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxCondSend(): mbox_id does not correspond to a mailbox.\n");
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -325,11 +367,14 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
         {
             USLOSS_Console("MboxCondSend(): msg_size out of range for box %d.\n", box->mboxID);
         }
+        enableInterrupts();
         return -1;
     }
 
-    if(isZapped())
+    // Check if we were zapped beforehand
+    if (isZapped())
     {
+        enableInterrupts();
         return -3;
     }
 
@@ -348,11 +393,12 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
                 USLOSS_Console("MboxCondSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
             }
             proc->msgSize = -1;
+            enableInterrupts();
             return -2;
         }
         memcpy(proc->msgBuf, msg_ptr, msg_size);
         proc->msgSize = msg_size;
-        unblockProc(proc->pid);
+        unblockProc(proc->pid); // enables interrupts
         return 0;
     }
 
@@ -361,6 +407,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     // ensure there is space in box for one more message, return -2 if not
     if(box->numSlotsOccupied == box->size)
     {
+        enableInterrupts();
         return -2;
     }
 
@@ -370,6 +417,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     {
         // No space is available.
         USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
+        enableInterrupts();
         return -2;
     }
 
@@ -381,6 +429,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     memcpy(slot->data, msg_ptr, msg_size);
     slot->size = msg_size;
 
+    enableInterrupts();
     return 0;
 } /* MboxCondSend */
 
@@ -395,6 +444,12 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxReceive");
+
+    // Disable interrupts
+    disableInterrupts();
+
     // Get the mailbox that mbox_id corresponds to
     if (mbox_id < 0 || mbox_id >= MAXMBOX)
     {
@@ -402,6 +457,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): mbox_id out of range.\n");
         }
+        enableInterrupts();
         return -1;
     }
     mailboxPtr box = &MailBoxTable[mbox_id];
@@ -411,6 +467,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): mbox_id does not correspond to a mailbox.\n");
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -421,6 +478,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): max_msg_size out of range for box %d.\n", box->mboxID);
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -439,7 +497,10 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         addBlockedProcsTail(box, proc);
 
         // Block until a message is available
-        blockMe(STATUS_BLOCK_RECEIVE);
+        blockMe(STATUS_BLOCK_RECEIVE); // enables interrupts
+
+        // redisable interrupts
+        disableInterrupts();
 
         // Clear the unblocked proc from the table
         clearProc(currentPid);
@@ -447,9 +508,11 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         // Check if zapped or if the mailbox was released
         if (proc->mboxReleased || isZapped())
         {
+            enableInterrupts();
             return -3;
         }
 
+        enableInterrupts();
         return proc->msgSize;
     }
 
@@ -460,6 +523,7 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -476,11 +540,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
             USLOSS_Console("MboxReceive(): unblocking process %d.\n", proc->pid);
         }
         removeBlockedProcsHead(box);
-        unblockProc(proc->pid);
+        unblockProc(proc->pid); // enables Interrupts
     }
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);
+    enableInterrupts();
     return slot->size;
 } /* MboxReceive */
 
@@ -500,6 +565,12 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
    ----------------------------------------------------------------------- */
 int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxCondReceive");
+
+    // disable interrupts
+    disableInterrupts();
+
     // Get the mailbox that mbox_id corresponds to
     if (mbox_id < 0 || mbox_id >= MAXMBOX)
     {
@@ -507,6 +578,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxCondReceive(): mbox_id out of range.\n");
         }
+        enableInterrupts();
         return -1;
     }
     mailboxPtr box = &MailBoxTable[mbox_id];
@@ -516,6 +588,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxCondReceive(): mbox_id does not correspond to a mailbox.\n");
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -526,11 +599,14 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxCondReceive(): max_msg_size out of range for box %d.\n", box->mboxID);
         }
+        enableInterrupts();
         return -1;
     }
 
-    if(isZapped())
+    // Check if we were zapped beforehand
+    if (isZapped())
     {
+        enableInterrupts();
         return -3;
     }
 
@@ -540,6 +616,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
     // No message is in the box, so we block
     if (slot == NULL)
     {
+        enableInterrupts();
         return -2;
     }
 
@@ -550,6 +627,7 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         {
             USLOSS_Console("MboxCondReceive(): message received from box %d is too large (%d) for buffer (%d).\n", box->mboxID, slot->size, max_msg_size);
         }
+        enableInterrupts();
         return -1;
     }
 
@@ -566,23 +644,32 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
             USLOSS_Console("MboxCondReceive(): unblocking process %d.\n", proc->pid);
         }
         removeBlockedProcsHead(box);
-        unblockProc(proc->pid);
+        unblockProc(proc->pid); // enables interrupts
     }
 
     // Copy the message
     memcpy(msg_ptr, slot->data, slot->size);
+    enableInterrupts();
     return slot->size;
 } /* MboxCondReceive */
 
 int MboxRelease(int mbox_id)
 {
+    // Check kernel mode
+    check_kernel_mode("MboxRelease");
+
+    // Disable interrupts
+    disableInterrupts();
+
     if (mbox_id < 0 || mbox_id > MAXMBOX)
     {
+        enableInterrupts();
         return -1;
     }
     mailboxPtr box = &MailBoxTable[mboxIDToIndex(mbox_id)];
     if (box->mboxID == ID_NEVER_EXISTED)
     {
+        enableInterrupts();
         return -1;
     }
     mboxProcPtr proc = box->blockedProcsHead;
@@ -590,20 +677,37 @@ int MboxRelease(int mbox_id)
     {
         // Flag proc as having a released mailbox and unblock
         proc->mboxReleased = 1;
-        unblockProc(proc->pid);
+        unblockProc(proc->pid); // enables interrupts
+        disableInterrupts();
         proc = proc->nextBlockedProc;
     }
-    // TODO check if zapped
+
+    enableInterrupts();    
+
+    // Check if we were zapped while releasing the mailbox
+    if (isZapped())
+    {
+        return -3;
+    }
     return 0;
 } /* MboxRelease */
 
 int waitDevice(int type, int unit, int *status)
 {
+    // Check kernel mode
+    check_kernel_mode("waitDevice");
+
+    // Disable interrupts
+    disableInterrupts();
+
     int mboxID = getDeviceMboxID(type, unit);
     char buf[MAX_MESSAGE];
 
     // Do the receive on the mailbox
-    MboxReceive(mboxID, buf, MAX_MESSAGE);
+    MboxReceive(mboxID, buf, MAX_MESSAGE); // enables interrupts
+    
+    // Redisable interrupts
+    disableInterrupts();
 
     // Check the status of the device
     if (USLOSS_DeviceInput(type, unit, status) != USLOSS_DEV_OK)
@@ -611,6 +715,8 @@ int waitDevice(int type, int unit, int *status)
         USLOSS_Console("waitDevice(): Device type %d, unit %d is invalid.\n", type, unit);
         USLOSS_Halt(1);
     }
+
+    enableInterrupts();
 
     // Check if zapped
     if (isZapped())
