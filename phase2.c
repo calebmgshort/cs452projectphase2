@@ -194,6 +194,11 @@ int MboxCreate(int slots, int slot_size)
    ----------------------------------------------------------------------- */
 int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+    if(DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxSend(): called.\n");
+    }
+
     // Check kernel mode
     check_kernel_mode("MboxSend");
 
@@ -355,6 +360,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
 {
+    if(DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxCondSend(): called.\n");
+    }
+
     // Check kernel mode
     check_kernel_mode("MboxCondSend");
 
@@ -477,6 +487,11 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
    ----------------------------------------------------------------------- */
 int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
+    if(DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxReceive(): called.\n");
+    }
+
     // Check kernel mode
     check_kernel_mode("MboxReceive");
 
@@ -606,6 +621,11 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
    ----------------------------------------------------------------------- */
 int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
 {
+    if(DEBUG2 && debugflag2)
+    {
+        USLOSS_Console("MboxCondReceive(): called.\n");
+    }
+
     // Check kernel mode
     check_kernel_mode("MboxCondReceive");
 
@@ -723,7 +743,7 @@ int MboxRelease(int mbox_id)
         proc = proc->nextBlockedProc;
     }
 
-    enableInterrupts();    
+    enableInterrupts();
 
     // Check if we were zapped while releasing the mailbox
     if (isZapped())
@@ -752,7 +772,7 @@ int waitDevice(int type, int unit, int *status)
 
     // Do the receive on the mailbox
     MboxReceive(mboxID, buf, MAX_MESSAGE); // enables interrupts
-    
+
     // Redisable interrupts
     disableInterrupts();
 
