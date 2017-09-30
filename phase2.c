@@ -231,10 +231,10 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     }
 
     // Check to see if anything is blocked on a receive from box
-    if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
+    mboxProcPtr proc = box->blockedProcsHead;
+    if (proc != NULL && proc->status == STATUS_BLOCK_RECEIVE)
     {
         // Put the message directly into the proc's buffer
-        mboxProcPtr proc = box->blockedProcsHead;
         removeBlockedProcsHead(box);
 
         // Check that the message can be received
@@ -305,7 +305,7 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
     if (slot == NULL)
     {
         // No space is available.
-        USLOSS_Console("MboxSend(): No more space in the slots table.\n");
+        // USLOSS_Console("MboxSend(): No more space in the slots table.\n");
         USLOSS_Halt(1);
     }
 
@@ -376,10 +376,10 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     }
 
     // Check to see if anything is blocked on a receive from box
-    if (box->blockedProcsHead != NULL && box->slotsHead == NULL)
+    mboxProcPtr proc = box->blockedProcsHead;
+    if (proc != NULL && proc->status == STATUS_BLOCK_RECEIVE)
     {
         // Put the message directly into the proc's buffer
-        mboxProcPtr proc = box->blockedProcsHead;
         removeBlockedProcsHead(box);
 
         // Check that the message can be received
@@ -423,7 +423,7 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     if (slot == NULL)
     {
         // No space is available.
-        USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
+        // USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
         enableInterrupts();
         return -2;
     }
@@ -503,18 +503,24 @@ int MboxReceive(int mbox_id, void *msg_ptr, int max_msg_size)
             }
 
             // Check that the message will fit in the buffer
-            if (proc->msgSize > max_msg_size)
+            if (proc->bufSize > max_msg_size)
             {
                 return -1;
             }
 
-            memcpy(msg_ptr, proc->msgBuf, proc->msgSize);
+            if (DEBUG2 && debugflag2)
+            { // TODO
+                USLOSS_Console("MboxReceive(): proc buffer %s\n", proc->msgBuf);
+                USLOSS_Console("MboxReceive(): proc msg size %d\n", proc->bufSize);
+            }
+
+            memcpy(msg_ptr, proc->msgBuf, proc->bufSize);
 
             // Unblock the process
             unblockProc(proc->pid);
 
             enableInterrupts();
-            return 0;
+            return proc->bufSize;
         }
         // If we're blocked on a receive, procede like normal
     }
@@ -639,24 +645,25 @@ int MboxCondReceive(int mbox_id, void *msg_ptr, int max_msg_size)
         return -3;
     }
 
+    // Handle 0 slot boxes
     if (box->size == 0 && box->blockedProcsHead != NULL)
     {
         mboxProcPtr proc = box->blockedProcsHead;
         if (proc->status == STATUS_BLOCK_SEND)
         {
             // Check that the message will fit in the buffer
-            if (proc->msgSize > max_msg_size)
+            if (proc->bufSize > max_msg_size)
             {
                 return -1;
             }
 
-            memcpy(msg_ptr, proc->msgBuf, proc->msgSize);
+            memcpy(msg_ptr, proc->msgBuf, proc->bufSize);
 
             // Unblock the process
             unblockProc(proc->pid);
 
             enableInterrupts();
-            return 0;
+            return proc->bufSize;
         }
     }
 
@@ -728,6 +735,8 @@ int MboxRelease(int mbox_id)
         proc = proc->nextBlockedProc;
     }
 
+    box->mboxID = ID_NEVER_EXISTED;
+
     enableInterrupts();
 
     // Check if we were zapped while releasing the mailbox
@@ -753,22 +762,8 @@ int waitDevice(int type, int unit, int *status)
         USLOSS_Console("waitDevice(): mailbox corresponding to device type %d, unit %d is %d.\n", type, unit, mboxID);
     }
 
-    char buf[MAX_MESSAGE];
-
     // Do the receive on the mailbox
-    MboxReceive(mboxID, buf, MAX_MESSAGE); // enables interrupts
-
-    // Redisable interrupts
-    disableInterrupts();
-
-    // Check the status of the device
-    if (USLOSS_DeviceInput(type, unit, status) != USLOSS_DEV_OK)
-    {
-        USLOSS_Console("waitDevice(): Device type %d, unit %d is invalid.\n", type, unit);
-        USLOSS_Halt(1);
-    }
-
-    enableInterrupts();
+    MboxReceive(mboxID, (void *) status, sizeof(int)); // enables interrupts
 
     // Check if zapped
     if (isZapped())
