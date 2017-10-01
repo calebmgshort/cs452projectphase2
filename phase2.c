@@ -191,135 +191,62 @@ int MboxCreate(int slots, int slot_size)
 0: message sent successfully.
    Side Effects - none.
    ----------------------------------------------------------------------- */
-int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
+int MboxSend(int mboxID, void *msgPtr, int msgSize)
 {
-    if(DEBUG2 && debugflag2)
+    if (DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxSend(): called.\n");
+        USLOSS_Console("MboxSend(): Called.\n");
     }
 
-    // Check kernel mode
-    check_kernel_mode("MboxSend");
+    // Defer to conditional send.
+    int result = MboxCondSend(mboxID, msgPtr, msgSize);
 
     // Disable interrupts
     disableInterrupts();
 
-    // Get the mailbox that mbox_id corresponds to
-    mailboxPtr box = getMailbox(mbox_id);
-    if (box == NULL)
+    // Return MboxCondSend's result if nothing more needs to be done
+    if (result == 0 || result == -1 || result == -3)
     {
         enableInterrupts();
-        return -1;
+        return result;
     }
 
-    // Check the message size
-    if (msg_size < 0 || msg_size > box->slotSize)
-    {
-        if (DEBUG2 && debugflag2)
-        {
-            USLOSS_Console("MboxSend(): msg_size out of range for box %d.\n", box->mboxID);
-        }
-        enableInterrupts();
-        return -1;
-    }
+    // Get the mailbox that mboxID corresponds to
+    mailboxPtr box = getMailbox(mboxID);
 
-    // Check if we were zapped beforehand
-    if (isZapped())
+    // Block on a send to the mailbox
+    int mboxReleased = blockCurrent(box, STATUS_BLOCK_SEND, msgPtr, msgSize);
+
+    // Redisable interrupts
+    disableInterrupts();
+
+    // Mark the current proc as unblocked
+    clearProc(getpid());
+
+    // Check if we were zapped or if the box was released while we were blocked
+    if (mboxReleased || isZapped())
     {
         enableInterrupts();
         return -3;
     }
 
-    // Check to see if anything is blocked on a receive from box
-    mboxProcPtr proc = box->blockedProcsHead;
-    if (proc != NULL && proc->status == STATUS_BLOCK_RECEIVE)
-    {
-        // Put the message directly into the proc's buffer
-        removeBlockedProcsHead(box);
-
-        // Check that the message can be received
-        if (msg_size > proc->bufSize)
-        {
-            if (DEBUG2 && debugflag2)
-            {
-                USLOSS_Console("MboxSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
-            }
-            proc->msgSize = -1;
-            // TODO Should we discard messages that could not be delivered or keep them? Currently, we discard them.
-            enableInterrupts();
-            return 0; // TODO what is the correct return value?
-        }
-        memcpy(proc->msgBuf, msg_ptr, msg_size);
-        proc->msgSize = msg_size;
-        unblockProc(proc->pid); // enables interrupts
-        enableInterrupts();
-        return 0;
-    }
-
     // Handle 0 slot boxes
     if (box->size == 0)
     {
-        // Block until the message is received
-        int mboxReleased = blockCurrent(box, STATUS_BLOCK_SEND, msg_ptr, msg_size);
-
-        // redisable interrupts
-        disableInterrupts();
-
-        // Mark the current proc as unblocked
-        clearProc(getpid());
-
-        // Check if we were zapped while blocked or if the mailbox was released
-        if (mboxReleased || isZapped())
-        {
-            enableInterrupts();
-            return -3;
-        }
+        // Receive will handle the memory copying
         enableInterrupts();
         return 0;
     }
 
-    // Otherwise, the message gets put into a slot
-
-    // ensure there is space in box for one more message, block if not
-    if(box->numSlotsOccupied == box->size)
+    // Drop the message into a slot in box
+    result = MboxCondSend(mboxID, msgPtr, msgSize);
+    if (result == -2)
     {
-        // Add current to the list of procs blocked on box
-        int mboxReleased = blockCurrent(box, STATUS_BLOCK_SEND, NULL, -1);
-
-        // Redisable interrupts after call to blockCurrent
-        disableInterrupts();
-
-        // Clear proc from the table
-        clearProc(getpid());
-
-        // Check if the mailbox was released
-        if (mboxReleased || isZapped())
-        {
-            enableInterrupts();
-            return -3;
-        }
-    }
-
-    // Get a slot for the new message
-    slotPtr slot = findEmptyMailSlot();
-    if (slot == NULL)
-    {
-        // No space is available.
-        // USLOSS_Console("MboxSend(): No more space in the slots table.\n");
+        // No free slots were avaialable
         USLOSS_Halt(1);
     }
-
-    // Add slot to box
-    addMailSlot(box, slot);
-
-    // Init slot's fields
-    slot->mboxID = box->mboxID;
-    memcpy(slot->data, msg_ptr, msg_size);
-    slot->size = msg_size;
-
-    enableInterrupts();
     return 0;
-} /* MboxSend */
+}
 
 /* ------------------------------------------------------------------------
    Name - MboxCondSend
@@ -394,7 +321,7 @@ int MboxCondSend(int mboxID, void *msgPtr, int msgSize)
             }
             proc->msgSize = -1;
             unblockProc(proc->pid);
-            return -2;
+            return -1;
         }
 
         // Copy the message into the buffer
