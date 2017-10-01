@@ -6,6 +6,7 @@
  */
 void removeSlotsHead(mailboxPtr box)
 {
+    box->slotsHead->mboxID = ID_NEVER_EXISTED;
     box->slotsHead = box->slotsHead->next;
     if (box->slotsHead == NULL)
     {
