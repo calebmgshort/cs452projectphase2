@@ -6,7 +6,7 @@ resultsdir="testResults/"
 myresultsdir="myResults/"
 fext=".txt"
 difftext="diff"
-maxtest=36
+maxtest=44
 diffdir="diffOutputs/"
 
 rm myResults/* &> /dev/null
