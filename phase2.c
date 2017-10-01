@@ -336,11 +336,11 @@ int MboxSend(int mbox_id, void *msg_ptr, int msg_size)
        0: message sent successfully.
    Side Effects - none.
    ----------------------------------------------------------------------- */
-int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
+int MboxCondSend(int mboxID, void *msgPtr, int msgSize)
 {
-    if(DEBUG2 && debugflag2)
+    if (DEBUG2 && debugflag2)
     {
-        USLOSS_Console("MboxCondSend(): called.\n");
+        USLOSS_Console("MboxCondSend(): Called.\n");
     }
 
     // Check kernel mode
@@ -349,8 +349,8 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     // Disable interrupts
     disableInterrupts();
 
-    // Get the mailbox that mbox_id corresponds to
-    mailboxPtr box = getMailbox(mbox_id);
+    // Get the mailbox that mboxID corresponds to
+    mailboxPtr box = getMailbox(mboxID);
     if (box == NULL)
     {
         enableInterrupts();
@@ -358,11 +358,11 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     }
 
     // Check the message size
-    if (msg_size < 0 || msg_size > box->slotSize)
+    if (msgSize < 0 || msgSize > box->slotSize)
     {
         if (DEBUG2 && debugflag2)
         {
-            USLOSS_Console("MboxCondSend(): msg_size out of range for box %d.\n", box->mboxID);
+            USLOSS_Console("MboxCondSend(): msgSize out of range for box %d.\n", mboxID);
         }
         enableInterrupts();
         return -1;
@@ -371,70 +371,69 @@ int MboxCondSend(int mbox_id, void *msg_ptr, int msg_size)
     // Check if we were zapped beforehand
     if (isZapped())
     {
+        // TODO do any of the side effects occur when zapped beforehand?
         enableInterrupts();
         return -3;
     }
 
-    // Check to see if anything is blocked on a receive from box
+    // Is anything blocked on a receive?
     mboxProcPtr proc = box->blockedProcsHead;
     if (proc != NULL && proc->status == STATUS_BLOCK_RECEIVE)
     {
-        // Put the message directly into the proc's buffer
+        // Put the message directly into the proc buffer
+
+        // Take the blocked proc off of the blocklist
         removeBlockedProcsHead(box);
 
-        // Check that the message can be received
-        if (msg_size > proc->bufSize)
+        // Check if the message is small enough to be received
+        if (msgSize > proc->bufSize)
         {
             if (DEBUG2 && debugflag2)
             {
-                USLOSS_Console("MboxCondSend(): message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msg_size, proc->bufSize);
+                USLOSS_Console("MboxCondSend(): Message sent directly to process %d is too large (%d) for buffer (%d).\n", proc->pid, msgSize, proc->bufSize);
             }
             proc->msgSize = -1;
-            enableInterrupts();
+            unblockProc(proc->pid);
             return -2;
         }
-        memcpy(proc->msgBuf, msg_ptr, msg_size);
-        proc->msgSize = msg_size;
-        unblockProc(proc->pid); // enables interrupts
-        enableInterrupts();
+
+        // Copy the message into the buffer
+        memcpy(proc->msgBuf, msgPtr, msgSize);
+        proc->msgSize = msgSize;
+        unblockProc(proc->pid);
         return 0;
     }
 
-    // Handle 0 slot boxes
-    if (box->size == 0)
+    // Check if the box has space for the message
+    if (box->numSlotsOccupied == box->size)
     {
-        // Nothing is blocked on a receive, so we cannot deliver a message
+        // The box has no space, so the message cannot be delivered without blocking
         enableInterrupts();
         return -2;
     }
 
- 
-    // Otherwise, the message gets put into a slot
-
-    // ensure there is space in box for one more message, return -2 if not
-    if(box->numSlotsOccupied == box->size)
-    {
-        enableInterrupts();
-        return -2;
-    }
+    // The message has space, so put the message into a slot
 
     // Get a slot for the new message
     slotPtr slot = findEmptyMailSlot();
     if (slot == NULL)
     {
         // No space is available.
-        // USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
+        if (DEBUG2 && debugflag2)
+        {
+            USLOSS_Console("MboxCondSend(): No more space in the slots table.\n");
+        }
         enableInterrupts();
         return -2;
     }
 
+    // Init slot's fields
+    slot->mboxID = mboxID;
+    memcpy(slot->data, msgPtr, msgSize);
+    slot->size = msgSize;
+
     // Add slot to box
     addMailSlot(box, slot);
-
-    // Init slot's fields
-    slot->mboxID = box->mboxID;
-    memcpy(slot->data, msg_ptr, msg_size);
-    slot->size = msg_size;
 
     enableInterrupts();
     return 0;

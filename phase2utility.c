@@ -217,6 +217,10 @@ void addMailSlot(mailboxPtr box, slotPtr slot)
     box->numSlotsOccupied++;
 }
 
+/*
+ * Gets the mboxID corresponding to the device mailbox for the device specified
+ * by type and unit.
+ */
 int getDeviceMboxID(int type, int unit)
 {
     int mboxID = -1;
