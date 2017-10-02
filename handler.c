@@ -36,10 +36,17 @@ void clockHandler2(int type, void* unitPointer)
     timeSlice();
     static int clockIteration = 0;
     clockIteration++;
-    if(clockIteration == 5)
+    if (clockIteration == 5)
     {
         int mboxID = getDeviceMboxID(type, unit);
-        MboxCondSend(mboxID, NULL, 0);
+        int status = -1;
+        int result = USLOSS_DeviceInput(type, unit, &status);
+        if (result != USLOSS_DEV_OK)
+        {
+            USLOSS_Console("clockHandler2(): Could not get input from device.\n");
+            USLOSS_Halt(1);
+        }
+        MboxCondSend(mboxID, (void *) &status, sizeof(int));
         clockIteration = 0;
     }
 
