@@ -525,6 +525,8 @@ int MboxRelease(int mbox_id)
         return -1;
     }
 
+    box->mboxID = ID_NEVER_EXISTED;
+
     mboxProcPtr proc = box->blockedProcsHead;
     while (proc != NULL)
     {
@@ -534,8 +536,6 @@ int MboxRelease(int mbox_id)
         disableInterrupts();
         proc = proc->nextBlockedProc;
     }
-
-    box->mboxID = ID_NEVER_EXISTED;
 
     enableInterrupts();
 
