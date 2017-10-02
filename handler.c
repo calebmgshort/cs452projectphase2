@@ -5,7 +5,6 @@
 #include "phase2utility.h"
 
 extern int debugflag2;
-static int clockIteration = 0;
 
 /* an error method to handle invalid syscalls */
 void nullsys(sysargs *args)
@@ -67,7 +66,12 @@ void diskHandler(int type, void* unitPointer)
     }
     int mboxID = getDeviceMboxID(type, unit);
     int status = -1;
-    USLOSS_DeviceInput(type, unit, &status);
+    int result = USLOSS_DeviceInput(type, unit, &status);
+    if (result != USLOSS_DEV_OK)
+    {
+        USLOSS_Console("diskHandler(): Could not get input from device.\n");
+        USLOSS_Halt(1);
+    }
     MboxCondSend(mboxID, (void*) &status, sizeof(int));
 
 } /* diskHandler */
@@ -92,7 +96,12 @@ void termHandler(int type, void* unitPointer)
     }
     int mboxID = getDeviceMboxID(type, unit);
     int status = -1;
-    USLOSS_DeviceInput(type, unit, &status);
+    int result = USLOSS_DeviceInput(type, unit, &status);
+    if (result != USLOSS_DEV_OK)
+    {
+        USLOSS_Console("termHandler(): Could not get input from device.\n");
+        USLOSS_Halt(1);
+    }
     MboxCondSend(mboxID, (void*) &status, sizeof(int));
 
 } /* termHandler */

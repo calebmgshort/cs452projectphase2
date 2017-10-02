@@ -2,6 +2,7 @@
 #include <phase2.h>
 #include <usloss.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "phase2utility.h"
 #include "phase2queue.h"

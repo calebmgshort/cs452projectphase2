@@ -15,4 +15,5 @@ int pidToSlot(int);
 int getDeviceMboxID(int, int);
 mailboxPtr getMailbox(int);
 int blockCurrent(mailboxPtr, int, void *, int);
+int transferMsgToSlot(mailboxPtr, void *, int);
 #endif

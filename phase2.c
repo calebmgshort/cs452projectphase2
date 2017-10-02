@@ -127,7 +127,7 @@ int MboxCreate(int slots, int slot_size)
     disableInterrupts();
 
     // Check args
-    if (slots < 0 || slots > MAXSLOTS)
+    if (slots < 0)
     {
         if (DEBUG2 && debugflag2)
         {
