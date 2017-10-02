@@ -230,21 +230,7 @@ int MboxSend(int mboxID, void *msgPtr, int msgSize)
         return -3;
     }
 
-    // Handle 0 slot boxes
-    if (box->size == 0)
-    {
-        // Receive will handle the memory copying
-        enableInterrupts();
-        return 0;
-    }
-
-    // Drop the message into a slot in box
-    result = transferMsgToSlot(box, msgPtr, msgSize);
-    if (result == -1)
-    {
-        // No free slots were avaialable
-        USLOSS_Halt(1);
-    }
+    // Receive will handle the memory copying, so we simply return.
     enableInterrupts();
     return 0;
 }
@@ -505,12 +491,18 @@ int MboxCondReceive(int mboxID, void *msgPtr, int maxMsgSize)
         copiedMsg = slot->size;
     }
 
-    // Unblock one process blocked on a send to box
+    // Unblock one process blocked on a send to box and transfer its message into a slot
     if (box->blockedProcsHead != NULL)
     {
         mboxProcPtr proc = box->blockedProcsHead;
-        // proc must be blocked on a send
+        // proc can only be blocked on a send
         removeBlockedProcsHead(box);
+        int result = transferMsgToSlot(box, proc->msgBuf, proc->bufSize);
+        if (result == -1)
+        {
+            USLOSS_Console("MboxReceive(): No more space in the slots table.\n");
+            USLOSS_Halt(1);
+        }
         unblockProc(proc->pid);
     }
 
