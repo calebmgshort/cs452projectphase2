@@ -9,7 +9,7 @@ extern int debugflag2;
 /* an error method to handle invalid syscalls */
 void nullsys(sysargs *args)
 {
-    USLOSS_Console("nullsys(): Invalid syscall. Halting...\n");
+    USLOSS_Console("nullsys(): Invalid syscall %d. Halting...\n", args->number);
     USLOSS_Halt(1);
 } /* nullsys */
 
@@ -107,13 +107,24 @@ void termHandler(int type, void* unitPointer)
 } /* termHandler */
 
 
-void syscallHandler(int type, void* unitPointer)
+void syscallHandler(int type, void* systemArgs)
 {
-
     if (DEBUG2 && debugflag2)
     {
         USLOSS_Console("syscallHandler(): called\n");
     }
-
-
+    if (type != USLOSS_SYSCALL_INT)
+    {
+        USLOSS_Console("syscallHandler(): called with wrong type %d.\n", type);
+        USLOSS_Halt(1);
+    }
+    sysargs *args = (sysargs *) systemArgs;
+    int number = args->number;
+    if (number < 0 || number >= MAXSYSCALLS)
+    {
+        USLOSS_Console("syscallHandler(): sys number %d is wrong.  Halting...\n", number);
+        USLOSS_Halt(1);
+    }
+    // Call the appropriate handler;
+    (systemCallVec[args->number])(args);
 } /* syscallHandler */

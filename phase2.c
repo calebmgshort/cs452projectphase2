@@ -32,8 +32,8 @@ mailSlot MailSlotTable[MAXSLOTS];
 // The message process table
 mboxProc ProcTable[MAXPROC];
 
-// also need array of mail slots, array of function ptrs to system call
-// handlers, ...
+// An array of syscall handlers
+void (*systemCallVec[MAXSYSCALLS])(sysargs *args);
 
 /* -------------------------- Functions ----------------------------------- */
 /* ------------------------------------------------------------------------
@@ -86,10 +86,17 @@ int start1(char *arg)
         disableInterrupts();
     }
 
+    // Initialize the syscall handlers
+    for (int i = 0; i < MAXSYSCALLS; i++)
+    {
+        systemCallVec[i] = nullsys;
+    }
+
     // Initialize the interrupt handlers
     USLOSS_IntVec[USLOSS_CLOCK_INT] = clockHandler2;
     USLOSS_IntVec[USLOSS_DISK_INT] = diskHandler;
     USLOSS_IntVec[USLOSS_TERM_INT] = termHandler;
+    USLOSS_IntVec[USLOSS_SYSCALL_INT] = syscallHandler;
 
     // Enable interrupts
     enableInterrupts();
