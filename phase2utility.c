@@ -103,7 +103,8 @@ mailboxPtr getMailbox(int mboxID)
 /*
  * Blocks the current process and makes a process table entry for it. Enables 
  * interrupts. Returns 1 if the mailbox was released while blocked. Returns 0
- * otherwise.
+ * otherwise. The process that calls block current is responsible for calling
+ * clearProc();
  */
 int blockCurrent(mailboxPtr box, int status, void *msgBuf, int bufSize)
 {
@@ -138,7 +139,8 @@ static void initProc(mboxProcPtr proc, int status, void *msgBuf, int bufSize)
 }
 
 /*
- * Clears space in the process table that corresponds to the given pid.
+ * Clears space in the process table that corresponds to the given pid. The
+ * process that calls blockCurrent is responsible for calling clearProc;
  */
 void clearProc(int pid)
 {
@@ -254,4 +256,29 @@ int getDeviceMboxID(int type, int unit)
     // Adjust mbox_ID for unit number
     mboxID += unit;
     return mboxID;
+}
+
+/*
+ * Puts the message indicated by msgPtr and msgSize into a slot in box. Assumes
+ * that box has the space to take another message. Returns -1 if there are no
+ * remaining slots for the message. Returns 0 otherwise.
+ */
+int transferMsgToSlot(mailboxPtr box, void *msgPtr, int msgSize)
+{
+    // Get a slot for the new message
+    slotPtr slot = findEmptyMailSlot();
+    if (slot == NULL)
+    {
+        // No space is available.
+        return -1;
+    }
+
+    // Init slot's fields
+    slot->mboxID = box->mboxID;
+    memcpy(slot->data, msgPtr, msgSize);
+    slot->size = msgSize;
+
+    // Add slot to box
+    addMailSlot(box, slot);
+    return 0;
 }

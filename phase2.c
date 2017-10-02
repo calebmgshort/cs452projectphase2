@@ -239,12 +239,13 @@ int MboxSend(int mboxID, void *msgPtr, int msgSize)
     }
 
     // Drop the message into a slot in box
-    result = MboxCondSend(mboxID, msgPtr, msgSize);
-    if (result == -2)
+    result = transferMsgToSlot(box, msgPtr, msgSize);
+    if (result == -1)
     {
         // No free slots were avaialable
         USLOSS_Halt(1);
     }
+    enableInterrupts();
     return 0;
 }
 
@@ -340,10 +341,8 @@ int MboxCondSend(int mboxID, void *msgPtr, int msgSize)
     }
 
     // The message has space, so put the message into a slot
-
-    // Get a slot for the new message
-    slotPtr slot = findEmptyMailSlot();
-    if (slot == NULL)
+    int result = transferMsgToSlot(box, msgPtr, msgSize);
+    if (result == -1)
     {
         // No space is available.
         if (DEBUG2 && debugflag2)
@@ -353,14 +352,6 @@ int MboxCondSend(int mboxID, void *msgPtr, int msgSize)
         enableInterrupts();
         return -2;
     }
-
-    // Init slot's fields
-    slot->mboxID = mboxID;
-    memcpy(slot->data, msgPtr, msgSize);
-    slot->size = msgSize;
-
-    // Add slot to box
-    addMailSlot(box, slot);
 
     enableInterrupts();
     return 0;
